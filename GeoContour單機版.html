@@ -119,6 +119,50 @@ input[type=color]{width:40px;height:24px;padding:1px;background:var(--bg-cell);b
 .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
 .tab-panel{display:none;flex:1;flex-direction:column;overflow:hidden}
 .tab-panel.active{display:flex}
+
+/* ===== Mobile panel toggle button ===== */
+#btn-panel-toggle{display:none;padding:5px 10px;background:var(--bg-cell);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:12px;cursor:pointer}
+
+/* ===== RWD: tablet ===== */
+@media(max-width:900px){
+  #right-panel{display:none}
+  #resizer-left{display:none}
+  #left-panel{width:100%!important;max-width:none!important;height:200px;min-height:80px;border-right:none;border-bottom:1px solid var(--border);flex-shrink:0}
+  #main-area{flex-direction:column}
+  #bottom-area{height:200px}
+  .toolbar-label{font-size:10px}
+  select.toolbar-select{min-width:80px!important}
+}
+
+/* ===== RWD: mobile ===== */
+@media(max-width:600px){
+  html,body{font-size:14px}
+  #app{height:100dvh}
+  #toolbar{padding:4px 6px;gap:3px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+  .toolbar-group{padding:0 3px;gap:2px}
+  .toolbar-label{display:none}
+  #btn-panel-toggle{display:inline-flex}
+  .btn{padding:6px 8px;font-size:12px;white-space:nowrap}
+  select.toolbar-select{font-size:12px;padding:5px 4px;min-width:70px!important}
+  #left-panel{width:100%!important;max-width:none!important;height:0;min-height:0!important;overflow:hidden;transition:height .25s ease;border-bottom:1px solid var(--border)}
+  #left-panel.mobile-open{height:220px}
+  #resizer-left{display:none}
+  #resizer-bottom{display:none}
+  #main-area{flex-direction:column}
+  #map-area{flex:1;min-height:0}
+  #right-panel{display:none}
+  #bottom-area{height:160px;flex-shrink:0}
+  .bottom-tab-btn{font-size:9px;padding:4px 2px}
+  #data-table{font-size:13px}
+  #data-table th,#data-table td{padding:6px 4px}
+  .cell-input{font-size:14px;padding:4px 6px}
+  .data-info{font-size:12px}
+  .settings-scroll{padding:6px}
+  .form-group label{font-size:11px}
+  .form-group input[type=number],.form-group select{font-size:13px;padding:5px 6px}
+  .layer-item{padding:6px 10px}
+  #btn-add-row{padding:4px 10px;font-size:14px}
+}
 </style>
 </head>
 <body>
@@ -160,7 +204,8 @@ input[type=color]{width:40px;height:24px;padding:1px;background:var(--bg-cell);b
       <button id="btn-export-png" class="btn">🖼 PNG</button>
       <button id="btn-export-svg" class="btn">📐 SVG</button>
     </div>
-    <div class="toolbar-group" style="margin-left:auto">
+    <div class="toolbar-group" style="margin-left:auto;gap:6px">
+      <button id="btn-panel-toggle" title="顯示/隱藏資料表">📋 資料</button>
       <span id="pt-count" class="toolbar-label">0 點</span>
     </div>
   </div>
@@ -1013,6 +1058,14 @@ GC.setupUI=function(){
   if(ba&&rb){let drag=false,sy=0,sh=0;rb.addEventListener('mousedown',e=>{drag=true;sy=e.clientY;sh=ba.offsetHeight;document.body.style.cursor='row-resize';});document.addEventListener('mousemove',e=>{if(!drag)return;ba.style.height=Math.max(120,Math.min(500,sh+(sy-e.clientY)))+'px';});document.addEventListener('mouseup',()=>{drag=false;document.body.style.cursor='';});}
 
   document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')GC.runInterpolation();if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();GC.downloadCSV();}});
+
+  // Mobile panel toggle
+  document.getElementById('btn-panel-toggle')?.addEventListener('click',()=>{
+    const lp=document.getElementById('left-panel');
+    lp.classList.toggle('mobile-open');
+    const open=lp.classList.contains('mobile-open');
+    document.getElementById('btn-panel-toggle').textContent=open?'✕ 關閉':'📋 資料';
+  });
 };
 
 // ===== SAMPLE DATA =====
