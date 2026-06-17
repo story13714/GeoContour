@@ -120,10 +120,15 @@ input[type=color]{width:40px;height:24px;padding:1px;background:var(--bg-cell);b
 .tab-panel{display:none;flex:1;flex-direction:column;overflow:hidden}
 .tab-panel.active{display:flex}
 
-/* ===== Mobile panel toggle button ===== */
-#btn-panel-toggle{display:none;padding:5px 10px;background:var(--bg-cell);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:12px;cursor:pointer}
+/* ===== Mobile panel toggle button (tablet only) ===== */
+#btn-panel-toggle{display:none}
 
-/* ===== RWD: tablet ===== */
+/* ===== Mobile bottom tab bar ===== */
+#mobile-tab-bar{display:none}
+.m-tab{flex:1;padding:10px 4px;font-size:12px;background:none;border:none;border-top:2px solid transparent;color:var(--text-secondary);cursor:pointer;transition:color var(--transition)}
+.m-tab.active{color:var(--accent);border-top-color:var(--accent)}
+
+/* ===== RWD: tablet (768–900px) ===== */
 @media(max-width:900px){
   #right-panel{display:none}
   #resizer-left{display:none}
@@ -134,34 +139,51 @@ input[type=color]{width:40px;height:24px;padding:1px;background:var(--bg-cell);b
   select.toolbar-select{min-width:80px!important}
 }
 
-/* ===== RWD: mobile ===== */
+/* ===== RWD: mobile (≤600px) — 三標籤頁模式 ===== */
 @media(max-width:600px){
-  html,body{font-size:14px}
-  #app{height:100dvh}
-  #toolbar{padding:4px 6px;gap:3px;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
-  .toolbar-group{padding:0 3px;gap:2px}
+  html,body{height:100%;overflow:hidden}
+  #app{height:100vh;height:100svh;display:flex;flex-direction:column}
+
+  /* Toolbar: single row, horizontal scroll */
+  #toolbar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:5px 8px;gap:4px;min-height:44px}
+  .toolbar-group{padding:0 3px;gap:2px;flex-shrink:0}
   .toolbar-label{display:none}
-  #btn-panel-toggle{display:inline-flex}
-  .btn{padding:6px 8px;font-size:12px;white-space:nowrap}
-  select.toolbar-select{font-size:12px;padding:5px 4px;min-width:70px!important}
-  #left-panel{width:100%!important;max-width:none!important;height:0;min-height:0!important;overflow:hidden;transition:height .25s ease;border-bottom:1px solid var(--border)}
-  #left-panel.mobile-open{height:220px}
-  #resizer-left{display:none}
-  #resizer-bottom{display:none}
-  #main-area{flex-direction:column}
-  #map-area{flex:1;min-height:0}
-  #right-panel{display:none}
-  #bottom-area{height:160px;flex-shrink:0}
-  .bottom-tab-btn{font-size:9px;padding:4px 2px}
-  #data-table{font-size:13px}
-  #data-table th,#data-table td{padding:6px 4px}
-  .cell-input{font-size:14px;padding:4px 6px}
-  .data-info{font-size:12px}
-  .settings-scroll{padding:6px}
-  .form-group label{font-size:11px}
-  .form-group input[type=number],.form-group select{font-size:13px;padding:5px 6px}
-  .layer-item{padding:6px 10px}
-  #btn-add-row{padding:4px 10px;font-size:14px}
+  .btn{padding:7px 9px;font-size:12px;white-space:nowrap}
+  select.toolbar-select{font-size:12px;padding:5px 4px;min-width:90px!important}
+  #pt-count{display:none}
+
+  /* Bottom tab bar visible on mobile */
+  #mobile-tab-bar{display:flex;background:var(--bg-panel);border-top:1px solid var(--border);flex-shrink:0;order:99}
+
+  /* Body fills remaining space */
+  #body{flex:1;min-height:0;overflow:hidden;position:relative}
+  #main-area{width:100%;height:100%;flex-direction:column}
+  #resizer-left,#resizer-bottom,#right-panel,#status-bar{display:none}
+  #bottom-area{display:none;height:100%!important;overflow:hidden}
+
+  /* 地圖 tab (default) */
+  #left-panel{display:none!important}
+  #map-area{flex:1;min-height:0;display:flex!important;flex-direction:column}
+
+  /* 資料 tab */
+  .m-data #left-panel{display:flex!important;width:100%!important;max-width:none!important;height:100%!important;min-height:0!important;border:none}
+  .m-data #map-area{display:none!important}
+
+  /* 設定 tab */
+  .m-settings #bottom-area{display:flex!important}
+  .m-settings #map-area{display:none!important}
+
+  /* Touch-friendly sizes */
+  #data-table{font-size:14px}
+  #data-table th,#data-table td{padding:7px 5px}
+  .cell-input{font-size:15px;padding:5px 6px}
+  #btn-add-row{font-size:15px;padding:5px 12px}
+  .bottom-tab-btn{font-size:10px;padding:6px 3px}
+  .settings-scroll{padding:8px}
+  .form-group label{font-size:12px}
+  .form-group input[type=number],.form-group select{font-size:14px;padding:6px 8px}
+  .layer-item{padding:8px 12px}
+  .range-row input[type=range]{height:28px}
 }
 </style>
 </head>
@@ -205,9 +227,15 @@ input[type=color]{width:40px;height:24px;padding:1px;background:var(--bg-cell);b
       <button id="btn-export-svg" class="btn">📐 SVG</button>
     </div>
     <div class="toolbar-group" style="margin-left:auto;gap:6px">
-      <button id="btn-panel-toggle" title="顯示/隱藏資料表">📋 資料</button>
       <span id="pt-count" class="toolbar-label">0 點</span>
     </div>
+  </div>
+
+  <!-- Mobile bottom tab bar (hidden on desktop) -->
+  <div id="mobile-tab-bar">
+    <button class="m-tab active" data-mtab="map">🗺 地圖</button>
+    <button class="m-tab" data-mtab="data">📋 資料</button>
+    <button class="m-tab" data-mtab="settings">⚙ 設定</button>
   </div>
 
   <div id="body">
@@ -1059,12 +1087,18 @@ GC.setupUI=function(){
 
   document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')GC.runInterpolation();if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();GC.downloadCSV();}});
 
-  // Mobile panel toggle
-  document.getElementById('btn-panel-toggle')?.addEventListener('click',()=>{
-    const lp=document.getElementById('left-panel');
-    lp.classList.toggle('mobile-open');
-    const open=lp.classList.contains('mobile-open');
-    document.getElementById('btn-panel-toggle').textContent=open?'✕ 關閉':'📋 資料';
+  // Mobile tab switching
+  document.querySelectorAll('.m-tab').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.m-tab').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const body=document.getElementById('body');
+      body.classList.remove('m-data','m-settings');
+      if(btn.dataset.mtab==='data')body.classList.add('m-data');
+      if(btn.dataset.mtab==='settings')body.classList.add('m-settings');
+      // Re-render map when switching back to map tab
+      if(btn.dataset.mtab==='map'&&GC.state.grid){setTimeout(()=>GC.renderMap(),50);}
+    });
   });
 };
 
