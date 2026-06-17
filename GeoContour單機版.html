@@ -772,10 +772,31 @@ GC.pasteCSV=function(text){
   if(!points.length){alert('無法解析資料，請確認格式為 X,Y,值');return;}
   GC.state.points=points;GC.renderTable();GC.updateDataInfo();GC.notify('已載入 '+points.length+' 個資料點');
 };
+// Universal download helper — works on desktop and mobile
+GC._isMobile=()=>/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+GC.triggerDownload=function(url,filename){
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;a.style.display='none';
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{document.body.removeChild(a);if(url.startsWith('blob:'))URL.revokeObjectURL(url);},300);
+};
+GC.showImageModal=function(url,filename){
+  document.getElementById('gc-img-modal')?.remove();
+  const m=document.createElement('div');m.id='gc-img-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:9999;display:flex;flex-direction:column;align-items:center;padding:16px 12px;overflow-y:auto;-webkit-overflow-scrolling:touch';
+  m.innerHTML=`<div style="width:100%;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <span style="color:#ccc;font-size:13px">📱 長按圖片→儲存</span>
+    <button onclick="document.getElementById('gc-img-modal').remove()" style="padding:7px 16px;background:var(--accent);border:none;border-radius:6px;color:#fff;font-size:13px;cursor:pointer">✕ 關閉</button>
+  </div>
+  <img src="${url}" style="max-width:100%;border-radius:6px;display:block">
+  <a href="${url}" download="${filename}" style="margin-top:14px;padding:11px 28px;background:#2ecc71;border-radius:8px;color:#fff;font-size:14px;text-decoration:none;display:inline-block;font-weight:600">⬇ 下載到裝置</a>`;
+  document.body.appendChild(m);
+};
 GC.downloadCSV=function(){
   const csv='X,Y,Value\n'+GC.state.points.map(p=>`${p.x},${p.y},${p.z}`).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='資料點.csv';a.click();URL.revokeObjectURL(url);
+  const url=URL.createObjectURL(blob);
+  GC.triggerDownload(url,'資料點.csv');
 };
 GC.notify=function(msg){const el=document.getElementById('notification');if(!el)return;el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3000);};
 
@@ -904,12 +925,22 @@ GC.drawTIN=function(){
 GC.exportPNG=function(opts={}){
   if(!_plotDiv)return;
   const t=GC.state.mapSettings.title||'污染濃度圖';
-  Plotly.toImage(_plotDiv,{format:'png',scale:opts.scale||2,width:opts.width||1400,height:opts.height||900}).then(url=>{const a=document.createElement('a');a.href=url;a.download=t+'.png';a.click();});
+  const w=opts.width||(GC._isMobile()?window.innerWidth*2:1400);
+  const h=opts.height||(GC._isMobile()?window.innerHeight*2:900);
+  GC.notify('正在產生圖片...');
+  Plotly.toImage(_plotDiv,{format:'png',scale:opts.scale||2,width:w,height:h}).then(url=>{
+    if(GC._isMobile()){GC.showImageModal(url,t+'.png');}
+    else{GC.triggerDownload(url,t+'.png');}
+  });
 };
 GC.exportSVG=function(){
   if(!_plotDiv)return;
   const t=GC.state.mapSettings.title||'污染濃度圖';
-  Plotly.toImage(_plotDiv,{format:'svg'}).then(url=>{const a=document.createElement('a');a.href=url;a.download=t+'.svg';a.click();});
+  GC.notify('正在產生 SVG...');
+  Plotly.toImage(_plotDiv,{format:'svg'}).then(url=>{
+    if(GC._isMobile()){GC.showImageModal(url,t+'.svg');}
+    else{GC.triggerDownload(url,t+'.svg');}
+  });
 };
 
 // ===== STATS PANELS =====
