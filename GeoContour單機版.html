@@ -287,7 +287,7 @@ input[type=color]{width:40px;height:24px;padding:1px;background:var(--bg-cell);b
             <div class="layer-opacity-row"><span>透明度</span><input type="range" id="opacity-vectors" min="0" max="1" step="0.05" value="0.85"><span id="opacity-vectors-val">0.85</span></div>
           </div>
           <div class="layer-item">
-            <div class="layer-row"><input type="checkbox" id="layer-scatter" checked><span class="layer-name">⚫ 資料點</span></div>
+            <div class="layer-row"><input type="checkbox" id="layer-scatter" checked><span class="layer-name">🔢 數值標籤</span></div>
             <div class="layer-opacity-row"><span>透明度</span><input type="range" id="opacity-scatter" min="0" max="1" step="0.05" value="1.0"><span id="opacity-scatter-val">1.0</span></div>
           </div>
           <div class="layer-item">
@@ -314,6 +314,7 @@ input[type=color]{width:40px;height:24px;padding:1px;background:var(--bg-cell);b
         <button class="bottom-tab-btn" data-tab="stats">📊 統計</button>
         <button class="bottom-tab-btn" data-tab="variogram">📈 半變異函數</button>
         <button class="bottom-tab-btn" data-tab="crossval">✅ 交叉驗證</button>
+        <button class="bottom-tab-btn" data-tab="layers">🔲 圖層</button>
       </div>
       <div class="bottom-content">
 
@@ -420,6 +421,40 @@ input[type=color]{width:40px;height:24px;padding:1px;background:var(--bg-cell);b
             <div class="stats-col" style="min-width:180px"><div class="stats-col-title">交叉驗證 <button id="btn-crossval" class="btn" style="font-size:10px;padding:2px 8px;margin-left:8px">執行</button></div><div style="flex:1;overflow-y:auto"><div id="cv-content"><p style="color:var(--text-muted);font-size:11px;padding:8px">點擊「執行」開始 LOO 交叉驗證</p></div></div></div>
             <div class="stats-col" style="min-width:200px"><div class="stats-col-title">預測 vs 實測</div><div id="cv-chart" style="flex:1;min-height:150px"></div></div>
           </div>
+        </div>
+
+        <!-- 圖層管理 panel (accessible on mobile via 設定 tab) -->
+        <div class="bottom-tab-panel" id="btab-layers">
+          <div class="settings-scroll"><div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div style="min-width:200px">
+              <div class="form-section-title">顯示圖層</div>
+              <div class="layer-item">
+                <div class="layer-row"><input type="checkbox" id="layer-contour2" checked><span class="layer-name">🎨 濃度等值面</span></div>
+                <div class="layer-opacity-row"><span>透明度</span><input type="range" id="opacity-contour2" min="0" max="1" step="0.05" value="0.85"><span id="opacity-contour2-val">0.85</span></div>
+              </div>
+              <div class="layer-item">
+                <div class="layer-row"><input type="checkbox" id="layer-markers"><span class="layer-name">⚫ 點位（永遠顯示）</span></div>
+                <div class="layer-opacity-row"><span>透明度</span><input type="range" id="opacity-scatter2" min="0" max="1" step="0.05" value="1.0"><span id="opacity-scatter2-val">1.0</span></div>
+              </div>
+              <div class="layer-item">
+                <div class="layer-row"><input type="checkbox" id="layer-labels2" checked><span class="layer-name">🔢 數值標籤</span></div>
+              </div>
+              <div class="layer-item">
+                <div class="layer-row"><input type="checkbox" id="layer-vectors2"><span class="layer-name">➡ 流向向量</span></div>
+                <div class="layer-opacity-row"><span>透明度</span><input type="range" id="opacity-vectors2" min="0" max="1" step="0.05" value="0.85"><span id="opacity-vectors2-val">0.85</span></div>
+              </div>
+              <div class="layer-item">
+                <div class="layer-row"><input type="checkbox" id="layer-tin2"><span class="layer-name">🔺 三角網 TIN</span></div>
+              </div>
+            </div>
+            <div style="min-width:180px">
+              <div class="form-section-title">資料點大小</div>
+              <div class="form-group"><label>點位大小</label><div class="range-row"><input type="range" id="scatter-size2" min="3" max="20" step="1" value="8"><span class="range-val" id="scatter-size2-val">8</span></div></div>
+              <div class="form-section-title" style="margin-top:12px">向量設定</div>
+              <div class="form-group"><label>密度</label><div class="range-row"><input type="range" id="vector-density2" min="5" max="50" step="1" value="20"><span class="range-val" id="vector-density2-val">20</span></div></div>
+              <div class="form-group"><label>箭頭縮放</label><div class="range-row"><input type="range" id="vector-scale2" min="0.2" max="4" step="0.1" value="1.5"><span class="range-val" id="vector-scale2-val">1.5</span></div></div>
+            </div>
+          </div></div>
         </div>
 
       </div>
@@ -842,8 +877,10 @@ GC.renderMap=async function(){
       colorbar:{title:{text:ms.colorbarTitle||'數值',font:{color:'#ccc',size:12}},tickfont:{color:'#ccc',size:10},outlinewidth:0,thickness:18,len:.75,x:1.02},
       showscale:true,hovertemplate:`${hoverXY}<br>${hoverXY2}<br>值: %{z:.4f}<extra></extra>`});
   }
-  if(layers.scatter.visible&&points.length>0){
-    traces.push({type:'scatter',mode:layers.scatter.labels?'markers+text':'markers',x:points.map(p=>p.x),y:points.map(p=>p.y),
+  // Dots always rendered; labels = numerical values toggle
+  if(points.length>0){
+    const showLabels=layers.scatter.labels!==false;
+    traces.push({type:'scatter',mode:showLabels?'markers+text':'markers',x:points.map(p=>p.x),y:points.map(p=>p.y),
       text:points.map(p=>p.z.toFixed(2)),textposition:'top center',textfont:{size:9,color:'#ffe'},
       marker:{size:layers.scatter.size||8,color:points.map(p=>p.z),colorscale:pls,cmin:zMin,cmax:zMax,line:{width:1.5,color:'#fff'},opacity:layers.scatter.opacity},
       hovertemplate:`${hoverXY}<br>${hoverXY2}<br>值: %{text}<extra>資料點</extra>`,showlegend:false});
@@ -1101,14 +1138,30 @@ GC.setupUI=function(){
     tr();
   });
 
-  // Layers
+  // Layers (right panel)
+  document.getElementById('layer-contour')?.addEventListener('change',e=>{GC.state.layers.contour.visible=e.target.checked;GC.renderMap();});
+  document.getElementById('layer-vectors')?.addEventListener('change',e=>{GC.state.layers.vectors.visible=e.target.checked;GC.renderMap();});
+  document.getElementById('layer-tin')?.addEventListener('change',e=>{GC.state.layers.tin.visible=e.target.checked;GC.renderMap();});
+  // "數值標籤" toggle — dots always shown, this controls labels only
+  document.getElementById('layer-scatter')?.addEventListener('change',e=>{GC.state.layers.scatter.labels=e.target.checked;tr();});
   ['contour','vectors','scatter','tin'].forEach(name=>{
-    document.getElementById('layer-'+name)?.addEventListener('change',e=>{GC.state.layers[name].visible=e.target.checked;GC.renderMap();});
-    document.getElementById('opacity-'+name)?.addEventListener('input',e=>{document.getElementById('opacity-'+name+'-val').textContent=e.target.value;GC.state.layers[name].opacity=parseFloat(e.target.value);});
+    document.getElementById('opacity-'+name)?.addEventListener('input',e=>{document.getElementById('opacity-'+name+'-val').textContent=e.target.value;GC.state.layers[name].opacity=parseFloat(e.target.value);tr();});
   });
-  document.getElementById('vector-density').addEventListener('input',e=>{document.getElementById('vector-density-val').textContent=e.target.value;GC.state.vectorSettings.density=parseInt(e.target.value);if(GC.state.layers.vectors.visible)GC.renderMap();});
+  document.getElementById('vector-density').addEventListener('input',e=>{document.getElementById('vector-density-val').textContent=e.target.value;GC.state.vectorSettings.density=parseInt(e.target.value);if(GC.state.layers.vectors.visible)tr();});
   document.getElementById('vector-scale').addEventListener('input',e=>{document.getElementById('vector-scale-val').textContent=e.target.value;GC.state.vectorSettings.scale=parseFloat(e.target.value);});
   document.getElementById('vector-color').addEventListener('change',e=>GC.state.vectorSettings.color=e.target.value);
+
+  // btab-layers panel (mobile + desktop layer management tab)
+  document.getElementById('layer-contour2')?.addEventListener('change',e=>{GC.state.layers.contour.visible=e.target.checked;document.getElementById('layer-contour').checked=e.target.checked;GC.renderMap();});
+  document.getElementById('layer-labels2')?.addEventListener('change',e=>{GC.state.layers.scatter.labels=e.target.checked;document.getElementById('layer-scatter').checked=e.target.checked;tr();});
+  document.getElementById('layer-vectors2')?.addEventListener('change',e=>{GC.state.layers.vectors.visible=e.target.checked;document.getElementById('layer-vectors').checked=e.target.checked;GC.renderMap();});
+  document.getElementById('layer-tin2')?.addEventListener('change',e=>{GC.state.layers.tin.visible=e.target.checked;document.getElementById('layer-tin').checked=e.target.checked;GC.renderMap();});
+  document.getElementById('opacity-contour2')?.addEventListener('input',e=>{const v=e.target.value;document.getElementById('opacity-contour2-val').textContent=v;GC.state.layers.contour.opacity=parseFloat(v);document.getElementById('opacity-contour').value=v;document.getElementById('opacity-contour-val').textContent=v;tr();});
+  document.getElementById('opacity-scatter2')?.addEventListener('input',e=>{const v=e.target.value;document.getElementById('opacity-scatter2-val').textContent=v;GC.state.layers.scatter.opacity=parseFloat(v);document.getElementById('opacity-scatter').value=v;document.getElementById('opacity-scatter-val').textContent=v;tr();});
+  document.getElementById('opacity-vectors2')?.addEventListener('input',e=>{const v=e.target.value;document.getElementById('opacity-vectors2-val').textContent=v;GC.state.layers.vectors.opacity=parseFloat(v);document.getElementById('opacity-vectors').value=v;document.getElementById('opacity-vectors-val').textContent=v;tr();});
+  document.getElementById('scatter-size2')?.addEventListener('input',e=>{const v=parseInt(e.target.value);document.getElementById('scatter-size2-val').textContent=v;GC.state.layers.scatter.size=v;tr();});
+  document.getElementById('vector-density2')?.addEventListener('input',e=>{const v=parseInt(e.target.value);document.getElementById('vector-density2-val').textContent=v;GC.state.vectorSettings.density=v;document.getElementById('vector-density').value=v;document.getElementById('vector-density-val').textContent=v;if(GC.state.layers.vectors.visible)tr();});
+  document.getElementById('vector-scale2')?.addEventListener('input',e=>{const v=parseFloat(e.target.value);document.getElementById('vector-scale2-val').textContent=v;GC.state.vectorSettings.scale=v;document.getElementById('vector-scale').value=v;document.getElementById('vector-scale-val').textContent=v;});
 
   // Resizers
   const lp=document.getElementById('left-panel'),rl=document.getElementById('resizer-left');
