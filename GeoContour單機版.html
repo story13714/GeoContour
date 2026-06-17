@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GeoContour — 地質濃度擴散分析系統</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<style>
+:root{--bg-darkest:#0d0d1a;--bg-dark:#1a1a2e;--bg-mid:#16213e;--bg-panel:#1e2440;--bg-cell:#252a42;--bg-hover:#2a3050;--bg-active:#2d3458;--border:#303560;--border-light:#404880;--accent:#4a90ff;--accent-hover:#6ab0ff;--accent-dim:rgba(74,144,255,0.2);--success:#2ecc71;--warning:#f39c12;--error:#e74c3c;--text-primary:#e0e0f0;--text-secondary:#a0a8c0;--text-muted:#606880;--text-accent:#7ab4ff;--font-main:'Segoe UI',Arial,'Microsoft JhengHei',sans-serif;--font-mono:'Consolas','Courier New',monospace;--radius:4px;--radius-lg:8px;--shadow:0 2px 8px rgba(0,0,0,0.5);--transition:0.15s ease}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;width:100%;overflow:hidden;font-family:var(--font-main);font-size:13px;background:var(--bg-darkest);color:var(--text-primary);-webkit-font-smoothing:antialiased}
+#app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+#toolbar{display:flex;align-items:center;gap:4px;padding:6px 10px;background:var(--bg-panel);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;min-height:44px}
+.toolbar-group{display:flex;align-items:center;gap:3px;padding:0 4px;border-right:1px solid var(--border)}
+.toolbar-group:last-child{border-right:none}
+.toolbar-label{font-size:11px;color:var(--text-muted);margin-right:4px;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:var(--bg-cell);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:12px;cursor:pointer;white-space:nowrap;transition:background var(--transition),border-color var(--transition)}
+.btn:hover{background:var(--bg-hover);border-color:var(--border-light)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-hover)}
+select.toolbar-select{padding:4px 8px;background:var(--bg-cell);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:12px;cursor:pointer;outline:none;min-width:90px}
+#body{display:flex;flex-direction:column;flex:1;overflow:hidden}
+#main-area{display:flex;flex:1;overflow:hidden;min-height:0}
+#left-panel{width:280px;min-width:180px;max-width:500px;display:flex;flex-direction:column;background:var(--bg-dark);border-right:1px solid var(--border);overflow:hidden;flex-shrink:0}
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--bg-panel);border-bottom:1px solid var(--border);font-weight:600;font-size:12px;color:var(--text-accent);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0}
+.panel-actions{display:flex;gap:4px}
+.panel-actions button{padding:2px 6px;font-size:10px;background:var(--bg-cell);border:1px solid var(--border);border-radius:3px;color:var(--text-secondary);cursor:pointer;transition:background var(--transition)}
+.panel-actions button:hover{background:var(--bg-hover);color:var(--text-primary)}
+.table-wrap{flex:1;overflow:auto;min-height:0}
+#data-table{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12px}
+#data-table thead tr{position:sticky;top:0;z-index:1}
+#data-table th{padding:5px 6px;background:var(--bg-panel);border-bottom:1px solid var(--border);color:var(--text-accent);font-size:11px;text-align:center;user-select:none}
+#data-table td{padding:3px 6px;border-bottom:1px solid rgba(48,53,96,.5);text-align:right;color:var(--text-primary)}
+#data-table td.row-num{color:var(--text-muted);text-align:center;font-size:10px;min-width:24px;user-select:none}
+#data-table td.cell:focus{outline:2px solid var(--accent);background:var(--bg-active)}
+#data-table tr:hover td{background:rgba(74,144,255,.06)}
+#data-table tr.new-row td{color:var(--text-muted);background:rgba(0,0,0,.15)}
+.del-btn{background:none;border:none;color:#555;cursor:pointer;font-size:11px;padding:2px 4px;border-radius:2px;transition:color var(--transition)}
+.del-btn:hover{color:#e74c3c}
+td.col-del{text-align:center;padding:2px;min-width:22px}
+th.col-del{min-width:22px}
+th.row-num,td.row-num{min-width:28px;width:28px}
+.data-info{padding:5px 10px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border);display:flex;justify-content:space-between;flex-shrink:0}
+.resizer{background:var(--border);flex-shrink:0;transition:background var(--transition)}
+.resizer:hover,.resizer:active{background:var(--accent)}
+#resizer-left{width:4px;cursor:col-resize}
+#resizer-bottom{height:4px;cursor:row-resize}
+#map-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;position:relative}
+#map-canvas{flex:1;min-height:0;min-width:0}
+#svg-overlay{position:absolute;pointer-events:none;overflow:visible}
+#right-panel{width:200px;min-width:160px;display:flex;flex-direction:column;background:var(--bg-dark);border-left:1px solid var(--border);overflow:hidden;flex-shrink:0}
+.layer-item{padding:6px 10px;border-bottom:1px solid rgba(48,53,96,.5);display:flex;flex-direction:column;gap:4px}
+.layer-row{display:flex;align-items:center;gap:6px}
+.layer-name{font-size:12px;flex:1}
+.layer-opacity-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted)}
+.layer-opacity-row input[type=range]{flex:1;height:3px;cursor:pointer;accent-color:var(--accent)}
+#bottom-area{display:flex;flex-direction:column;background:var(--bg-dark);border-top:1px solid var(--border);overflow:hidden;flex-shrink:0;height:240px;min-height:120px}
+.bottom-tabs{display:flex;align-items:center;background:var(--bg-panel);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto}
+.bottom-tab-btn{padding:6px 12px;font-size:11px;color:var(--text-secondary);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;transition:color var(--transition),border-color var(--transition);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+.bottom-tab-btn:hover{color:var(--text-primary)}
+.bottom-tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.bottom-content{flex:1;display:flex;overflow:hidden;min-height:0}
+.bottom-tab-panel{display:none;flex:1;overflow:hidden}
+.bottom-tab-panel.active{display:flex}
+.settings-scroll{flex:1;overflow-y:auto;padding:8px 10px}
+.form-group{margin-bottom:10px}
+.form-group label{display:block;font-size:11px;color:var(--text-secondary);margin-bottom:3px;text-transform:uppercase;letter-spacing:.3px}
+.form-group input[type=text],.form-group input[type=number],.form-group select{width:100%;padding:4px 7px;background:var(--bg-cell);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:12px;outline:none;transition:border-color var(--transition)}
+.form-group input:focus,.form-group select:focus{border-color:var(--accent)}
+.form-group input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer}
+.range-row{display:flex;align-items:center;gap:8px}
+.range-val{font-size:11px;color:var(--text-accent);min-width:32px;text-align:right;font-family:var(--font-mono)}
+.form-row{display:flex;gap:8px}
+.form-row .form-group{flex:1}
+.form-section-title{font-size:10px;font-weight:700;color:var(--text-accent);text-transform:uppercase;letter-spacing:.8px;padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:8px}
+.checkbox-group{display:flex;align-items:center;gap:6px;font-size:12px}
+.checkbox-group input[type=checkbox]{accent-color:var(--accent)}
+.stats-scroll{flex:1;overflow-y:auto;padding:8px}
+.stats-table{width:100%;border-collapse:collapse;font-size:12px}
+.stats-table td{padding:3px 6px;border-bottom:1px solid rgba(48,53,96,.4)}
+.stats-table td:first-child{color:var(--text-secondary)}
+.stats-table td:last-child{text-align:right;font-family:var(--font-mono);color:var(--text-accent)}
+.stats-table tr:hover td{background:rgba(74,144,255,.06)}
+#histogram-chart,#variogram-chart,#cv-chart{height:200px}
+.vario-info{display:flex;flex-wrap:wrap;gap:8px;font-size:11px;padding:4px 0;color:var(--text-secondary)}
+.vario-info .vario-best{color:var(--success);font-weight:600}
+.stats-cols{display:flex;gap:0;height:100%;overflow:hidden}
+.stats-col{flex:1;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid var(--border);padding:4px 6px;min-width:0}
+.stats-col:last-child{border-right:none}
+.stats-col-title{font-size:10px;font-weight:700;color:var(--text-accent);text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px;border-bottom:1px solid var(--border);margin-bottom:4px;flex-shrink:0}
+#status-bar{padding:3px 12px;font-size:11px;color:var(--text-muted);background:var(--bg-darkest);border-top:1px solid var(--border);flex-shrink:0}
+.status-running{color:var(--warning)!important}
+.status-done{color:var(--success)!important}
+.status-error{color:var(--error)!important}
+#notification{position:fixed;bottom:40px;right:20px;padding:8px 16px;background:var(--bg-active);border:1px solid var(--accent);border-radius:var(--radius-lg);color:var(--text-primary);font-size:13px;z-index:1000;opacity:0;transform:translateY(10px);transition:opacity .3s,transform .3s;pointer-events:none}
+#notification.show{opacity:1;transform:translateY(0)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:2000}
+.modal{background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;min-width:400px;max-width:600px;box-shadow:var(--shadow)}
+.modal h3{color:var(--text-accent);margin-bottom:12px;font-size:14px}
+.modal textarea{width:100%;height:180px;background:var(--bg-darkest);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-mono);font-size:12px;padding:8px;resize:vertical;outline:none;margin-bottom:10px}
+.modal textarea:focus{border-color:var(--accent)}
+.modal-hint{font-size:11px;color:var(--text-muted);margin-bottom:10px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg-darkest)}
+::-webkit-scrollbar-thumb{background:var(--border-light);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+input[type=checkbox]{cursor:pointer}
+input[type=color]{width:40px;height:24px;padding:1px;background:var(--bg-cell);border:1px solid var(--border);border-radius:var(--radius);cursor:pointer}
+.cell-input{width:100%;background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text-primary);font-family:var(--font-mono);font-size:12px;padding:2px 4px;text-align:right;outline:none;box-sizing:border-box;transition:border-color var(--transition),background var(--transition)}
+.cell-input:focus{border-bottom-color:var(--accent);background:rgba(74,144,255,.06)}
+.cell-input::placeholder{color:var(--text-muted);font-size:11px}
+.new-row .cell-input{border-bottom-color:var(--border-light)}
+.new-row .cell-input:focus{border-bottom-color:var(--accent)}
+.tab-row{display:flex;background:var(--bg-panel);border-bottom:1px solid var(--border);flex-shrink:0}
+.tab-btn{flex:1;padding:5px 4px;font-size:10px;color:var(--text-secondary);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;text-transform:uppercase;letter-spacing:.3px;transition:color var(--transition)}
+.tab-btn:hover{color:var(--text-primary)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-panel{display:none;flex:1;flex-direction:column;overflow:hidden}
+.tab-panel.active{display:flex}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar">
+    <div class="toolbar-group">
+      <span class="toolbar-label" style="font-weight:700;font-size:13px;color:#7ab4ff;letter-spacing:1px">GeoContour</span>
+    </div>
+    <div class="toolbar-group">
+      <label class="btn" style="cursor:pointer" title="載入 CSV">
+        📂 開啟 CSV
+        <input id="file-input" type="file" accept=".csv,.txt,.tsv" style="display:none">
+      </label>
+      <button id="btn-paste" class="btn">📋 貼上資料</button>
+      <button id="btn-sample" class="btn">🔬 範例資料</button>
+      <button id="btn-export-csv" class="btn">💾 存 CSV</button>
+    </div>
+    <div class="toolbar-group">
+      <span class="toolbar-label">插值方法</span>
+      <select id="interp-method" class="toolbar-select">
+        <option value="idw">IDW (反距離加權)</option>
+        <option value="kriging">Kriging (克里金)</option>
+        <option value="triangulation">Delaunay 三角網</option>
+        <option value="naturalneighbor">自然鄰近法</option>
+      </select>
+    </div>
+    <div class="toolbar-group">
+      <span class="toolbar-label">座標模式</span>
+      <select id="coord-mode" class="toolbar-select" style="min-width:130px">
+        <option value="xy">一般 XY 坐標</option>
+        <option value="twd97">TWD97 二度分帶</option>
+        <option value="latlon">經緯度 WGS84</option>
+      </select>
+    </div>
+    <div class="toolbar-group">
+      <button id="btn-run" class="btn primary">▶ 執行插值</button>
+    </div>
+    <div class="toolbar-group">
+      <button id="btn-export-png" class="btn">🖼 PNG</button>
+      <button id="btn-export-svg" class="btn">📐 SVG</button>
+    </div>
+    <div class="toolbar-group" style="margin-left:auto">
+      <span id="pt-count" class="toolbar-label">0 點</span>
+    </div>
+  </div>
+
+  <div id="body">
+    <div id="main-area">
+      <div id="left-panel">
+        <div class="panel-header">
+          資料表格
+          <div class="panel-actions">
+            <button onclick="document.getElementById('file-input').click()" title="載入">📂</button>
+            <button id="btn-paste-small" title="貼上">📋</button>
+            <button onclick="GC.downloadCSV()" title="儲存">💾</button>
+          </div>
+        </div>
+        <div class="tab-row">
+          <button class="tab-btn active" data-tab="datagrid">資料表</button>
+          <button class="tab-btn" data-tab="datainfo">資訊</button>
+        </div>
+        <div class="tab-panel active" id="tab-datagrid">
+          <div class="table-wrap"><table id="data-table"></table></div>
+          <div class="data-info">
+            <span id="point-info">尚無資料</span>
+            <span id="range-info"></span>
+          </div>
+        </div>
+        <div class="tab-panel" id="tab-datainfo">
+          <div class="settings-scroll">
+            <div class="form-section-title">資料說明</div>
+            <p style="font-size:11px;color:var(--text-muted);line-height:1.6">每列需包含 X、Y、數值三個欄位。支援 CSV、TSV、空白分隔。</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="resizer-left" class="resizer"></div>
+
+      <div id="map-area">
+        <div id="map-canvas"></div>
+        <svg id="svg-overlay" style="position:absolute;top:0;left:0;pointer-events:none"></svg>
+      </div>
+
+      <div id="right-panel">
+        <div class="panel-header">圖層管理</div>
+        <div style="flex:1;overflow-y:auto">
+          <div class="layer-item">
+            <div class="layer-row"><input type="checkbox" id="layer-contour" checked><span class="layer-name">🎨 濃度等值面</span></div>
+            <div class="layer-opacity-row"><span>透明度</span><input type="range" id="opacity-contour" min="0" max="1" step="0.05" value="0.85"><span id="opacity-contour-val">0.85</span></div>
+          </div>
+          <div class="layer-item">
+            <div class="layer-row"><input type="checkbox" id="layer-vectors"><span class="layer-name">➡ 流向向量</span></div>
+            <div class="layer-opacity-row"><span>透明度</span><input type="range" id="opacity-vectors" min="0" max="1" step="0.05" value="0.85"><span id="opacity-vectors-val">0.85</span></div>
+          </div>
+          <div class="layer-item">
+            <div class="layer-row"><input type="checkbox" id="layer-scatter" checked><span class="layer-name">⚫ 資料點</span></div>
+            <div class="layer-opacity-row"><span>透明度</span><input type="range" id="opacity-scatter" min="0" max="1" step="0.05" value="1.0"><span id="opacity-scatter-val">1.0</span></div>
+          </div>
+          <div class="layer-item">
+            <div class="layer-row"><input type="checkbox" id="layer-tin"><span class="layer-name">△ 三角網 TIN</span></div>
+            <div class="layer-opacity-row"><span>透明度</span><input type="range" id="opacity-tin" min="0" max="1" step="0.05" value="0.5"><span id="opacity-tin-val">0.5</span></div>
+          </div>
+          <div style="padding:8px 10px;border-top:1px solid var(--border);margin-top:4px">
+            <div class="form-section-title">向量設定</div>
+            <div class="form-group"><label>密度</label><div class="range-row"><input type="range" id="vector-density" min="5" max="40" step="1" value="20"><span class="range-val" id="vector-density-val">20</span></div></div>
+            <div class="form-group"><label>縮放</label><div class="range-row"><input type="range" id="vector-scale" min="0.3" max="3" step="0.1" value="1.5"><span class="range-val" id="vector-scale-val">1.5</span></div></div>
+            <div class="form-group"><label>顏色</label><input type="color" id="vector-color" value="#ffffff"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="resizer-bottom" class="resizer"></div>
+
+    <div id="bottom-area">
+      <div class="bottom-tabs">
+        <button class="bottom-tab-btn active" data-tab="gridsettings">⚙ 插值設定</button>
+        <button class="bottom-tab-btn" data-tab="contoursettings">🎨 等值線設定</button>
+        <button class="bottom-tab-btn" data-tab="mapsettings">🗺 地圖設定</button>
+        <button class="bottom-tab-btn" data-tab="stats">📊 統計</button>
+        <button class="bottom-tab-btn" data-tab="variogram">📈 半變異函數</button>
+        <button class="bottom-tab-btn" data-tab="crossval">✅ 交叉驗證</button>
+      </div>
+      <div class="bottom-content">
+
+        <div class="bottom-tab-panel active" id="btab-gridsettings">
+          <div class="settings-scroll"><div style="display:flex;gap:16px;flex-wrap:wrap">
+            <div style="min-width:160px">
+              <div class="form-section-title">網格解析度</div>
+              <div class="form-row">
+                <div class="form-group"><label>X 節點數</label><input type="number" id="grid-nx" value="100" min="10" max="500" step="10"></div>
+                <div class="form-group"><label>Y 節點數</label><input type="number" id="grid-ny" value="100" min="10" max="500" step="10"></div>
+              </div>
+              <div class="form-group"><label>最大鄰近點數</label><input type="number" id="max-neighbors" value="20" min="3" max="50"></div>
+            </div>
+            <div id="idw-params" style="min-width:150px">
+              <div class="form-section-title">IDW 參數</div>
+              <div class="form-group"><label>冪次 (Power)</label><div class="range-row"><input type="range" id="idw-power" min="0.5" max="6" step="0.5" value="2"><span class="range-val" id="idw-power-val">2</span></div></div>
+              <div class="form-group"><label>搜尋半徑 (0=全域)</label><input type="number" id="search-radius" value="0" min="0" step="1"></div>
+            </div>
+            <div id="kriging-params" style="min-width:200px;display:none">
+              <div class="form-section-title">Kriging 參數</div>
+              <div class="checkbox-group form-group"><input type="checkbox" id="auto-variogram" checked><label style="text-transform:none;font-size:12px">自動擬合半變異函數</label></div>
+              <div class="form-group"><label>變異函數模型</label><select id="variogram-model" style="width:100%;padding:4px 7px;background:var(--bg-cell);border:1px solid var(--border);border-radius:4px;color:var(--text-primary)"><option value="spherical">球狀 (Spherical)</option><option value="exponential">指數 (Exponential)</option><option value="gaussian">高斯 (Gaussian)</option></select></div>
+              <div class="form-row">
+                <div class="form-group"><label>Nugget</label><input type="number" id="nugget" value="0" min="0" step="0.001"></div>
+                <div class="form-group"><label>Sill</label><input type="number" id="sill" value="100" min="0.001" step="0.001"></div>
+              </div>
+              <div class="form-group"><label>Range (變程)</label><input type="number" id="range" value="100" min="1" step="1"></div>
+            </div>
+          </div></div>
+        </div>
+
+        <div class="bottom-tab-panel" id="btab-contoursettings">
+          <div class="settings-scroll"><div style="display:flex;gap:16px;flex-wrap:wrap">
+            <div style="min-width:200px">
+              <div class="form-section-title">等值線間格模式</div>
+              <div class="form-group"><label>間格模式</label><select id="level-mode" style="width:100%;padding:4px 7px;background:var(--bg-cell);border:1px solid var(--border);border-radius:4px;color:var(--text-primary)"><option value="auto">自動 (指定條數)</option><option value="interval">固定間距</option><option value="manual">手動指定值</option></select></div>
+              <div id="level-auto-row"><div class="form-group"><label>等值線條數</label><div class="range-row"><input type="range" id="contour-levels" min="3" max="50" step="1" value="15"><span class="range-val" id="contour-levels-val">15</span></div></div></div>
+              <div id="level-interval-row" style="display:none"><div class="form-group"><label>固定間距值</label><input type="number" id="level-interval" value="10" min="0.001" step="0.001" placeholder="例: 10"></div></div>
+              <div id="level-manual-row" style="display:none"><div class="form-group"><label>指定等值線值 (逗號分隔)</label><input type="text" id="level-manual-values" placeholder="例: 10, 25, 50, 75" style="width:100%;padding:4px 7px;background:var(--bg-cell);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px"></div></div>
+              <div class="checkbox-group form-group"><input type="checkbox" id="contour-auto-range" checked><label style="text-transform:none;font-size:12px">自動範圍</label></div>
+              <div class="form-row"><div class="form-group"><label>最小值</label><input type="number" id="contour-min" value="0" step="0.1"></div><div class="form-group"><label>最大值</label><input type="number" id="contour-max" value="100" step="0.1"></div></div>
+              <div class="checkbox-group form-group"><input type="checkbox" id="show-labels" checked><label style="text-transform:none;font-size:12px">顯示數值標籤</label></div>
+            </div>
+            <div style="min-width:170px">
+              <div class="form-section-title">色彩設定</div>
+              <div class="form-group"><label>色階方案</label><select id="color-scale" style="width:100%;padding:4px 7px;background:var(--bg-cell);border:1px solid var(--border);border-radius:4px;color:var(--text-primary)"></select></div>
+              <div class="checkbox-group form-group"><input type="checkbox" id="color-reverse"><label style="text-transform:none;font-size:12px">反轉色階</label></div>
+              <div class="form-group"><label>填色透明度</label><div class="range-row"><input type="range" id="fill-opacity" min="0" max="1" step="0.05" value="0.85"><span class="range-val" id="fill-opacity-val">0.85</span></div></div>
+            </div>
+            <div style="min-width:160px">
+              <div class="form-section-title">線條設定</div>
+              <div class="form-group"><label>線條寬度 (px)</label><input type="number" id="line-width" value="1" min="0" max="5" step="0.5"></div>
+              <div class="form-group"><label>線條顏色</label><input type="color" id="line-color" value="#333333"></div>
+            </div>
+          </div></div>
+        </div>
+
+        <div class="bottom-tab-panel" id="btab-mapsettings">
+          <div class="settings-scroll"><div style="display:flex;gap:16px;flex-wrap:wrap">
+            <div style="min-width:220px">
+              <div class="form-section-title">標題與軸標籤</div>
+              <div class="form-group"><label>地圖標題</label><input type="text" id="map-title" placeholder="（留空則不顯示）" style="width:100%;padding:4px 7px;background:var(--bg-cell);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px"></div>
+              <div class="form-group"><label>X 軸標籤</label><input type="text" id="x-label" value="X 坐標" style="width:100%;padding:4px 7px;background:var(--bg-cell);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px"></div>
+              <div class="form-group"><label>Y 軸標籤</label><input type="text" id="y-label" value="Y 坐標" style="width:100%;padding:4px 7px;background:var(--bg-cell);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px"></div>
+              <div class="form-group"><label>色階標題</label><input type="text" id="colorbar-title" placeholder="數值" style="width:100%;padding:4px 7px;background:var(--bg-cell);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px"></div>
+            </div>
+            <div style="min-width:200px">
+              <div class="form-section-title">匯出設定</div>
+              <div class="form-row"><div class="form-group"><label>寬度 (px)</label><input type="number" id="export-width" value="1400" min="400" max="4000" step="100"></div><div class="form-group"><label>高度 (px)</label><input type="number" id="export-height" value="900" min="300" max="3000" step="100"></div></div>
+              <div class="form-group"><label>解析度縮放</label><select id="export-scale" style="width:100%;padding:4px 7px;background:var(--bg-cell);border:1px solid var(--border);border-radius:4px;color:var(--text-primary)"><option value="1">1× (螢幕)</option><option value="2" selected>2× (高解析)</option><option value="3">3× (印刷)</option><option value="4">4× (超高)</option></select></div>
+              <button id="btn-export-png-adv" class="btn primary" style="width:100%;margin-top:4px">🖼 依設定匯出 PNG</button>
+            </div>
+            <div style="min-width:200px">
+              <div class="form-section-title">座標模式說明</div>
+              <p style="font-size:11px;color:var(--text-muted);line-height:1.8">
+                <strong style="color:var(--text-accent)">一般 XY</strong>：任意平面座標（無單位假設）。<br>
+                <strong style="color:var(--text-accent)">TWD97 二度分帶</strong>：台灣 TM2，X=橫坐標 E、Y=縱坐標 N，單位公尺，刻度顯示千位分隔符。<br>
+                <strong style="color:var(--text-accent)">經緯度 WGS84</strong>：十進位度數，X=經度、Y=緯度，刻度顯示 °E/°N。
+              </p>
+              <div style="display:flex;flex-direction:column;gap:5px;margin-top:8px">
+                <button class="btn" style="font-size:11px" id="btn-sample-twd97">載入 TWD97 範例（台中地下水）</button>
+                <button class="btn" style="font-size:11px" id="btn-sample-latlon">載入 WGS84 範例（台灣地下水）</button>
+              </div>
+            </div>
+          </div></div>
+        </div>
+
+        <div class="bottom-tab-panel" id="btab-stats">
+          <div class="stats-cols">
+            <div class="stats-col"><div class="stats-col-title">描述統計</div><div style="flex:1;overflow-y:auto"><div id="stats-content"><p style="color:var(--text-muted);font-size:11px;padding:8px">請先載入資料並執行插值</p></div></div></div>
+            <div class="stats-col" style="min-width:200px"><div class="stats-col-title">頻率分布</div><div id="histogram-chart" style="flex:1"></div></div>
+          </div>
+        </div>
+
+        <div class="bottom-tab-panel" id="btab-variogram">
+          <div class="stats-cols">
+            <div class="stats-col" style="min-width:280px"><div class="stats-col-title">半變異函數圖</div><div id="variogram-chart" style="flex:1;min-height:150px"></div></div>
+            <div class="stats-col"><div class="stats-col-title">擬合結果</div><div id="variogram-params" style="padding:6px"><p style="color:var(--text-muted);font-size:11px">選擇 Kriging 並執行插值後顯示</p></div></div>
+          </div>
+        </div>
+
+        <div class="bottom-tab-panel" id="btab-crossval">
+          <div class="stats-cols">
+            <div class="stats-col" style="min-width:180px"><div class="stats-col-title">交叉驗證 <button id="btn-crossval" class="btn" style="font-size:10px;padding:2px 8px;margin-left:8px">執行</button></div><div style="flex:1;overflow-y:auto"><div id="cv-content"><p style="color:var(--text-muted);font-size:11px;padding:8px">點擊「執行」開始 LOO 交叉驗證</p></div></div></div>
+            <div class="stats-col" style="min-width:200px"><div class="stats-col-title">預測 vs 實測</div><div id="cv-chart" style="flex:1;min-height:150px"></div></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <div id="status-bar">就緒</div>
+</div>
+
+<div id="paste-modal" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <h3>貼上資料</h3>
+    <p class="modal-hint">格式：X,Y,值（逗號、Tab 或空白分隔）。第一列可為標題行。</p>
+    <textarea id="paste-textarea" placeholder="100, 200, 45.3&#10;150, 250, 38.7&#10;..."></textarea>
+    <div class="modal-actions">
+      <button id="btn-paste-cancel" class="btn">取消</button>
+      <button id="btn-paste-confirm" class="btn primary">確認匯入</button>
+    </div>
+  </div>
+</div>
+
+<div id="notification"></div>
+
+<script>
+// ==================== GeoContour Single-File App ====================
+const GC = window.GC = {};
+
+// ===== COLOR SCALES =====
+GC.COLOR_SCALES = {
+  Jet:[[0,'#000080'],[.1,'#0000ff'],[.2,'#0080ff'],[.35,'#00ffff'],[.5,'#80ff80'],[.65,'#ffff00'],[.8,'#ff8000'],[.9,'#ff0000'],[1,'#800000']],
+  Viridis:[[0,'#440154'],[.13,'#482878'],[.25,'#3e4989'],[.38,'#31688e'],[.5,'#26828e'],[.63,'#1f9e89'],[.75,'#35b779'],[.88,'#6ece58'],[1,'#fde725']],
+  RdYlGn:[[0,'#d73027'],[.25,'#fc8d59'],[.5,'#fee08b'],[.75,'#d9ef8b'],[1,'#1a9850']],
+  BlueRed:[[0,'#053061'],[.25,'#2166ac'],[.5,'#f7f7f7'],[.75,'#d6604d'],[1,'#67001f']],
+  Plasma:[[0,'#0d0887'],[.25,'#7e03a8'],[.5,'#cb4679'],[.75,'#f89441'],[1,'#f0f921']],
+  YlOrRd:[[0,'#ffffcc'],[.25,'#fed976'],[.5,'#fd8d3c'],[.75,'#e31a1c'],[1,'#800026']],
+  Blues:[[0,'#f7fbff'],[.25,'#c6dbef'],[.5,'#6baed6'],[.75,'#2171b5'],[1,'#08306b']],
+  Greens:[[0,'#f7fcf5'],[.25,'#c7e9c0'],[.5,'#74c476'],[.75,'#238b45'],[1,'#00441b']],
+  Spectral:[[0,'#9e0142'],[.2,'#f46d43'],[.4,'#fee08b'],[.5,'#ffffbf'],[.6,'#e6f598'],[.8,'#66c2a5'],[1,'#5e4fa2']],
+  Rainbow:[[0,'#6e40aa'],[.16,'#4477ff'],[.33,'#00d4aa'],[.5,'#00ff44'],[.66,'#e4ff00'],[.83,'#ff9500'],[1,'#ff0000']],
+};
+GC.getScale=(name,rev)=>{let s=GC.COLOR_SCALES[name]||GC.COLOR_SCALES.Jet;return rev?s.map(([t,c])=>[1-t,c]).reverse():s;};
+
+// ===== STATE =====
+GC.state = {
+  points:[],grid:null,stats:null,variogram:null,isComputing:false,
+  layers:{contour:{visible:true,opacity:.85},vectors:{visible:false,opacity:.85},scatter:{visible:true,opacity:1,size:8,labels:true},tin:{visible:false,opacity:.5}},
+  contourSettings:{levels:15,autoRange:true,min:0,max:100,colorScale:'Jet',reverse:false,lineWidth:1,lineColor:'#333333',fillOpacity:.85,showLabels:true},
+  gridSettings:{method:'idw',nx:100,ny:100,power:2,searchRadius:0,maxNeighbors:20,variogramModel:'spherical',nugget:0,sill:1,range:100,autoVariogram:true},
+  vectorSettings:{density:20,scale:1.5,color:'#ffffff',opacity:.85},
+  mapSettings:{title:'',xLabel:'X 坐標',yLabel:'Y 坐標',colorbarTitle:'數值',coordMode:'xy'},
+  contourLevelSettings:{mode:'auto',interval:10,manualValues:''},
+};
+
+// ===== CSV PARSER =====
+GC.parseCSV=function(text){
+  const lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l=>l.trim());
+  if(!lines.length)return{points:[]};
+  const first=lines[0];
+  const nc=(first.match(/,/g)||[]).length,nt=(first.match(/\t/g)||[]).length;
+  const delim=nt>nc?'\t':nc>0?',':null;
+  function split(line){
+    if(!delim)return line.trim().split(/\s+/);
+    const r=[];let cur='',inQ=false;
+    for(const c of line){if(c==='"'){inQ=!inQ;continue;}if(!inQ&&c===delim){r.push(cur.trim());cur='';continue;}cur+=c;}
+    r.push(cur.trim());return r;
+  }
+  const headers=split(lines[0]);
+  const colL=headers.map(h=>h.toLowerCase().trim());
+  const xi=colL.findIndex(c=>['x','lon','longitude','east','easting'].includes(c));
+  const yi=colL.findIndex(c=>['y','lat','latitude','north','northing'].includes(c));
+  const zi=colL.findIndex(c=>['z','value','val','concentration','conc','head'].includes(c));
+  const X=xi>=0?xi:0,Y=yi>=0?yi:1,Z=zi>=0?zi:2;
+  const pts=[];
+  const start=isNaN(parseFloat(split(lines[0])[X]))?1:0;
+  for(let i=start;i<lines.length;i++){
+    const v=split(lines[i]);
+    const x=parseFloat(v[X]),y=parseFloat(v[Y]),z=parseFloat(v[Z]);
+    if(!isNaN(x)&&!isNaN(y)&&!isNaN(z))pts.push({x,y,z,id:pts.length});
+  }
+  return{points:pts};
+};
+
+// ===== IDW =====
+GC.idw=function(pts,gx,gy,power,sr,maxN){
+  const nx=gx.length,ny=gy.length,EPS=1e-10;
+  const g=Array.from({length:ny},()=>new Float64Array(nx));
+  for(let j=0;j<ny;j++){const qy=gy[j];for(let i=0;i<nx;i++){
+    const qx=gx[i];let cands=pts;
+    if(sr>0){cands=pts.filter(p=>{const dx=p.x-qx,dy=p.y-qy;return dx*dx+dy*dy<=sr*sr;});if(cands.length<2)cands=pts;}
+    const d=cands.map(p=>{const dx=p.x-qx,dy=p.y-qy;return{p,d2:dx*dx+dy*dy};}).sort((a,b)=>a.d2-b.d2).slice(0,maxN);
+    let ws=0,vs=0;
+    for(const{p,d2}of d){if(d2<EPS){vs=p.z;ws=1;break;}const w=1/Math.pow(d2,power/2);ws+=w;vs+=w*p.z;}
+    g[j][i]=ws>0?vs/ws:NaN;
+  }}return g;
+};
+
+// ===== VARIOGRAM =====
+GC.variogramValue=function(model,h,n,s,r){
+  if(h<=0)return 0;const c=s-n;
+  if(model==='spherical')return h>=r?s:n+c*(1.5*(h/r)-.5*Math.pow(h/r,3));
+  if(model==='exponential')return n+c*(1-Math.exp(-3*h/r));
+  if(model==='gaussian')return n+c*(1-Math.exp(-3*h*h/(r*r)));
+  return n+c*(1.5*(h/r)-.5*Math.pow(Math.min(h/r,1),3));
+};
+GC.experimentalVariogram=function(pts,nL=12){
+  const pairs=[];
+  for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+    const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y;
+    pairs.push({h:Math.sqrt(dx*dx+dy*dy),gamma:.5*(pts[i].z-pts[j].z)**2});
+  }
+  pairs.sort((a,b)=>a.h-b.h);
+  const maxH=pairs[Math.floor(pairs.length*.5)].h;
+  const ls=maxH/nL;
+  const bins=Array.from({length:nL},(_,k)=>({h:(k+.5)*ls,count:0,gs:0}));
+  for(const p of pairs){const idx=Math.min(Math.floor(p.h/ls),nL-1);bins[idx].count++;bins[idx].gs+=p.gamma;}
+  return bins.filter(b=>b.count>=2).map(b=>({h:b.h,gamma:b.gs/b.count,count:b.count}));
+};
+GC.fitVariogram=function(ev,model){
+  const gs=ev.map(p=>p.gamma),mG=Math.max(...gs),mH=ev[ev.length-1].h;
+  function nm(f,x0){
+    const n=x0.length,a=1,g2=2,r=.5,s=.5,maxi=800,tol=1e-8;
+    let sx=[x0.slice()];
+    for(let i=0;i<n;i++){const v=x0.slice();v[i]+=(Math.abs(v[i])>1e-5?.05*v[i]:.00025);sx.push(v);}
+    let fv=sx.map(v=>f(v));
+    for(let it=0;it<maxi;it++){
+      const o=fv.map((_,i)=>i).sort((a,b)=>fv[a]-fv[b]);
+      sx=o.map(i=>sx[i]);fv=o.map(i=>fv[i]);
+      if(Math.abs(fv[n]-fv[0])<tol)break;
+      const cen=new Array(n).fill(0);
+      for(let i=0;i<n;i++)for(let d=0;d<n;d++)cen[d]+=sx[i][d]/n;
+      const xr=cen.map((c,d)=>c+a*(c-sx[n][d])),fr=f(xr);
+      if(fr<fv[0]){const xe=cen.map((c,d)=>c+g2*(xr[d]-c)),fe=f(xe);sx[n]=fe<fr?xe:xr;fv[n]=fe<fr?fe:fr;}
+      else if(fr<fv[n-1]){sx[n]=xr;fv[n]=fr;}
+      else{const xc=cen.map((c,d)=>c+r*(sx[n][d]-c)),fc=f(xc);
+        if(fc<fv[n]){sx[n]=xc;fv[n]=fc;}
+        else{for(let i=1;i<=n;i++){sx[i]=sx[i].map((v,d)=>sx[0][d]+s*(v-sx[0][d]));fv[i]=f(sx[i]);}}}
+    }return sx[0];
+  }
+  const cost=([n,s,r2])=>{if(n<0||s<=n||r2<=0)return 1e15;let sum=0;for(const p of ev){const d=GC.variogramValue(model,p.h,n,s,r2)-p.gamma;sum+=p.count*d*d;}return sum;};
+  const [n,s,r2]=nm(cost,[0,mG*1.1,mH*.4]);
+  return{model,nugget:Math.max(0,n),sill:Math.max(n+.01,s),range:Math.max(1,r2),rmse:Math.sqrt(cost([n,s,r2])/ev.length)};
+};
+
+// ===== KRIGING =====
+GC.kriging=function(pts,gx,gy,params){
+  const{model='spherical',nugget=0,sill=1,range=100,maxNeighbors=16}=params;
+  const nx=gx.length,ny=gy.length;
+  const g=Array.from({length:ny},()=>new Float64Array(nx));
+  const gam=h=>GC.variogramValue(model,h,nugget,sill,range);
+  const cov=h=>sill-gam(h);
+  function solve(A,b){
+    const n=b.length,M=A.map((r,i)=>[...r,b[i]]);
+    for(let c=0;c<n;c++){let mx=c;for(let r=c+1;r<n;r++)if(Math.abs(M[r][c])>Math.abs(M[mx][c]))mx=r;[M[c],M[mx]]=[M[mx],M[c]];
+      const pv=M[c][c];if(Math.abs(pv)<1e-12)continue;
+      for(let r=c+1;r<n;r++){const f=M[r][c]/pv;for(let k=c;k<=n;k++)M[r][k]-=f*M[c][k];}}
+    const x=new Array(n).fill(0);
+    for(let i=n-1;i>=0;i--){x[i]=M[i][n];for(let j=i+1;j<n;j++)x[i]-=M[i][j]*x[j];x[i]/=M[i][i]||1e-12;}
+    return x;
+  }
+  for(let j=0;j<ny;j++){const qy=gy[j];for(let i=0;i<nx;i++){
+    const qx=gx[i];
+    const nbrs=pts.map(p=>{const dx=p.x-qx,dy=p.y-qy;return{p,d2:dx*dx+dy*dy};}).sort((a,b)=>a.d2-b.d2).slice(0,maxNeighbors);
+    if(nbrs[0]&&nbrs[0].d2<1e-10){g[j][i]=nbrs[0].p.z;continue;}
+    const k=nbrs.length;
+    const C=Array.from({length:k+1},()=>new Array(k+1).fill(0));
+    for(let a=0;a<k;a++){C[a][k]=C[k][a]=1;for(let b=0;b<k;b++){if(a===b){C[a][b]=cov(0);continue;}const dx=nbrs[a].p.x-nbrs[b].p.x,dy=nbrs[a].p.y-nbrs[b].p.y;C[a][b]=cov(Math.sqrt(dx*dx+dy*dy));}}
+    const c0=new Array(k+1).fill(0);c0[k]=1;
+    for(let a=0;a<k;a++){const dx=nbrs[a].p.x-qx,dy=nbrs[a].p.y-qy;c0[a]=cov(Math.sqrt(dx*dx+dy*dy));}
+    const w=solve(C,c0);let est=0;for(let a=0;a<k;a++)est+=w[a]*nbrs[a].p.z;
+    g[j][i]=est;
+  }}return g;
+};
+
+// ===== TRIANGULATION =====
+GC.triangulationInterp=function(pts,gx,gy){
+  const nx=gx.length,ny=gy.length;
+  const g=Array.from({length:ny},()=>new Float64Array(nx).fill(NaN));
+  const del=d3.Delaunay.from(pts,p=>p.x,p=>p.y);
+  const tris=del.triangles;
+  function bary(ax,ay,bx,by,cx,cy,az,bz,cz,px,py){
+    const det=(by-cy)*(ax-cx)+(cx-bx)*(ay-cy);
+    if(Math.abs(det)<1e-12)return(az+bz+cz)/3;
+    const l1=((by-cy)*(px-cx)+(cx-bx)*(py-cy))/det;
+    const l2=((cy-ay)*(px-cx)+(ax-cx)*(py-cy))/det;
+    const l3=1-l1-l2;
+    if(l1<-.001||l2<-.001||l3<-.001)return NaN;
+    return l1*az+l2*bz+l3*cz;
+  }
+  for(let j=0;j<ny;j++){const qy=gy[j];for(let i=0;i<nx;i++){
+    const qx=gx[i];let found=NaN;
+    for(let t=0;t<tris.length&&isNaN(found);t+=3){
+      const ia=tris[t],ib=tris[t+1],ic=tris[t+2];
+      found=bary(pts[ia].x,pts[ia].y,pts[ib].x,pts[ib].y,pts[ic].x,pts[ic].y,pts[ia].z,pts[ib].z,pts[ic].z,qx,qy);
+    }
+    g[j][i]=found;
+  }}return g;
+};
+
+// ===== GRID ENGINE =====
+GC.buildGrid=function(pts,settings){
+  if(!pts||pts.length<3)throw new Error('需要至少3個資料點');
+  const{nx=100,ny=100,method='idw'}=settings;
+  const xs=pts.map(p=>p.x),ys=pts.map(p=>p.y);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const xp=(x1-x0)*.05||1,yp=(y1-y0)*.05||1;
+  const xMin=x0-xp,xMax=x1+xp,yMin=y0-yp,yMax=y1+yp;
+  const gx=Array.from({length:nx},(_,i)=>xMin+(xMax-xMin)*i/(nx-1));
+  const gy=Array.from({length:ny},(_,j)=>yMin+(yMax-yMin)*j/(ny-1));
+  let z,variogramResult=null;
+  if(method==='idw'){
+    z=GC.idw(pts,gx,gy,settings.power||2,settings.searchRadius||0,settings.maxNeighbors||20);
+  }else if(method==='kriging'){
+    let{nugget,sill,range,variogramModel}=settings;
+    if(settings.autoVariogram!==false){
+      const ev=GC.experimentalVariogram(pts,12);
+      const mods=['spherical','exponential','gaussian'];
+      const fits=mods.map(m=>GC.fitVariogram(ev,m));
+      const best=fits.reduce((a,b)=>a.rmse<b.rmse?a:b);
+      variogramResult={experimental:ev,fits,best};
+      nugget=best.nugget;sill=best.sill;range=best.range;variogramModel=best.model;
+      document.getElementById('nugget').value=nugget.toFixed(4);
+      document.getElementById('sill').value=sill.toFixed(4);
+      document.getElementById('range').value=range.toFixed(2);
+    }
+    z=GC.kriging(pts,gx,gy,{model:variogramModel||'spherical',nugget:nugget||0,sill:sill||Math.max(...pts.map(p=>p.z)),range:range||(xMax-xMin)/3,maxNeighbors:settings.maxNeighbors||16});
+  }else if(method==='triangulation'){
+    z=GC.triangulationInterp(pts,gx,gy);
+  }else{
+    z=GC.idw(pts,gx,gy,1,0,3,8);
+  }
+  const flat=[];for(let j=0;j<ny;j++)for(let i=0;i<nx;i++)if(!isNaN(z[j][i]))flat.push(z[j][i]);
+  const mn=Math.min(...flat),mx=Math.max(...flat);
+  return{z:z.map(r=>Array.from(r)),gridX:gx,gridY:gy,nx,ny,xMin,xMax,yMin,yMax,min:mn,max:mx,variogramResult,method};
+};
+
+GC.computeGradient=function(grid){
+  const ny=grid.z.length,nx=grid.z[0].length;
+  const dx=(grid.xMax-grid.xMin)/(nx-1),dy=(grid.yMax-grid.yMin)/(ny-1);
+  const gx=[],gy2=[];
+  for(let j=0;j<ny;j++){gx.push(new Float64Array(nx));gy2.push(new Float64Array(nx));
+    for(let i=0;i<nx;i++){
+      const im=Math.max(0,i-1),ip=Math.min(nx-1,i+1);
+      const jm=Math.max(0,j-1),jp=Math.min(ny-1,j+1);
+      gx[j][i]=(grid.z[j][ip]-grid.z[j][im])/((ip-im)*dx);
+      gy2[j][i]=(grid.z[jp][i]-grid.z[jm][i])/((jp-jm)*dy);
+    }}return{gx,gy:gy2};
+};
+
+// ===== STATISTICS =====
+GC.computeStats=function(pts){
+  if(!pts.length)return null;
+  const v=[...pts.map(p=>p.z)].sort((a,b)=>a-b);
+  const n=v.length,sum=v.reduce((s,x)=>s+x,0),mean=sum/n;
+  const variance=v.reduce((s,x)=>s+(x-mean)**2,0)/(n>1?n-1:1);
+  const std=Math.sqrt(variance);
+  const pct=p=>{const idx=(p/100)*(n-1),lo=Math.floor(idx),hi=Math.ceil(idx);return lo===hi?v[lo]:v[lo]+(v[hi]-v[lo])*(idx-lo);};
+  const skew=n>2?(v.reduce((s,x)=>s+(x-mean)**3,0)/n)/std**3:0;
+  const kurt=n>3?(v.reduce((s,x)=>s+(x-mean)**4,0)/n)/variance**2-3:0;
+  return{n,mean,variance,std,min:v[0],max:v[n-1],median:pct(50),p10:pct(10),p25:pct(25),p75:pct(75),p90:pct(90),skewness:skew,kurtosis:kurt,cv:mean?std/mean*100:0,iqr:pct(75)-pct(25)};
+};
+
+// ===== DATA GRID =====
+GC.renderTable=function(){
+  const pts=GC.state.points;
+  const tbl=document.getElementById('data-table');
+  if(!tbl)return;
+  tbl.innerHTML='';
+  const thead=document.createElement('thead');
+  thead.innerHTML='<tr><th class="row-num">#</th><th>X</th><th>Y</th><th>值</th><th class="col-del">✕</th></tr>';
+  tbl.appendChild(thead);
+  const tbody=document.createElement('tbody');
+
+  // Existing data rows — each cell is an <input type="number">
+  pts.forEach((p,idx)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td class="row-num">${idx+1}</td>
+      <td><input class="cell-input" type="number" value="${p.x}" step="any" data-idx="${idx}" data-f="x"></td>
+      <td><input class="cell-input" type="number" value="${p.y}" step="any" data-idx="${idx}" data-f="y"></td>
+      <td><input class="cell-input" type="number" value="${p.z}" step="any" data-idx="${idx}" data-f="z"></td>
+      <td class="col-del"><button class="del-btn" data-idx="${idx}">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+
+  // New-entry row
+  const newRow=document.createElement('tr');
+  newRow.className='new-row';
+  newRow.innerHTML=`<td class="row-num" style="color:var(--accent);font-size:13px">＋</td>
+    <td><input class="cell-input" type="number" id="nr-x" placeholder="X" step="any"></td>
+    <td><input class="cell-input" type="number" id="nr-y" placeholder="Y" step="any"></td>
+    <td><input class="cell-input" type="number" id="nr-z" placeholder="值" step="any"></td>
+    <td class="col-del"><button id="btn-add-row" style="padding:1px 6px;font-size:12px;background:var(--accent);border:none;border-radius:3px;color:#fff;cursor:pointer;line-height:18px">＋</button></td>`;
+  tbody.appendChild(newRow);
+  tbl.appendChild(tbody);
+
+  // Commit new row helper
+  function commitNewRow(){
+    const xv=parseFloat(document.getElementById('nr-x')?.value);
+    const yv=parseFloat(document.getElementById('nr-y')?.value);
+    const zv=parseFloat(document.getElementById('nr-z')?.value);
+    if(!isNaN(xv)&&!isNaN(yv)&&!isNaN(zv)){
+      GC.state.points=[...GC.state.points,{x:xv,y:yv,z:zv,id:GC.state.points.length}];
+      GC.renderTable();GC.updateDataInfo();
+      // Re-focus X of new row
+      setTimeout(()=>document.getElementById('nr-x')?.focus(),30);
+    }
+  }
+
+  // + button
+  document.getElementById('btn-add-row')?.addEventListener('click',commitNewRow);
+
+  // Enter / Tab in new row: Tab on Z commits if all filled, Enter commits
+  ['nr-x','nr-y','nr-z'].forEach(id=>{
+    document.getElementById(id)?.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){e.preventDefault();commitNewRow();}
+      if(e.key==='Tab'&&!e.shiftKey&&id==='nr-z'){
+        const xv=parseFloat(document.getElementById('nr-x')?.value);
+        const yv=parseFloat(document.getElementById('nr-y')?.value);
+        const zv=parseFloat(document.getElementById('nr-z')?.value);
+        if(!isNaN(xv)&&!isNaN(yv)&&!isNaN(zv)){e.preventDefault();commitNewRow();}
+      }
+    });
+  });
+
+  // Edit existing rows
+  tbl.querySelectorAll('.cell-input:not(#nr-x):not(#nr-y):not(#nr-z)').forEach(inp=>{
+    inp.addEventListener('change',()=>{
+      const idx=parseInt(inp.dataset.idx),val=parseFloat(inp.value);
+      if(!isNaN(val)){GC.state.points=GC.state.points.map((pt,i)=>i===idx?{...pt,[inp.dataset.f]:val}:pt);GC.updateDataInfo();}
+      else inp.value=GC.state.points[idx]?.[inp.dataset.f]??'';
+    });
+    inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inp.blur();}});
+  });
+
+  // Delete row
+  tbl.querySelectorAll('.del-btn').forEach(b=>b.addEventListener('click',()=>{
+    const idx=parseInt(b.dataset.idx);
+    GC.state.points=GC.state.points.filter((_,i)=>i!==idx);GC.renderTable();GC.updateDataInfo();
+  }));
+
+  GC.updateDataInfo();
+};
+GC.fmt=v=>{if(v===undefined||v===null||v==='')return'';const n=parseFloat(v);if(isNaN(n))return v;return Number.isInteger(n)?n.toString():n.toFixed(4).replace(/\.?0+$/,'');};
+GC.updateDataInfo=function(){
+  const pts=GC.state.points,n=pts.length;
+  document.getElementById('pt-count').textContent=n+' 點';
+  document.getElementById('point-info').textContent='共 '+n+' 個資料點';
+  if(n>=2){const zs=pts.map(p=>p.z);document.getElementById('range-info').textContent='Z: '+Math.min(...zs).toFixed(2)+'~'+Math.max(...zs).toFixed(2);}
+};
+GC.pasteCSV=function(text){
+  const{points}=GC.parseCSV(text);
+  if(!points.length){alert('無法解析資料，請確認格式為 X,Y,值');return;}
+  GC.state.points=points;GC.renderTable();GC.updateDataInfo();GC.notify('已載入 '+points.length+' 個資料點');
+};
+GC.downloadCSV=function(){
+  const csv='X,Y,Value\n'+GC.state.points.map(p=>`${p.x},${p.y},${p.z}`).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='資料點.csv';a.click();URL.revokeObjectURL(url);
+};
+GC.notify=function(msg){const el=document.getElementById('notification');if(!el)return;el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),3000);};
+
+// ===== MAP RENDERER =====
+let _plotDiv=null,_svgOverlay=null;
+GC.initRenderer=function(){_plotDiv=document.getElementById('map-canvas');_svgOverlay=document.getElementById('svg-overlay');window.addEventListener('resize',()=>{if(_plotDiv)Plotly.relayout(_plotDiv,{});setTimeout(GC.syncSVG,100);});};
+GC.syncSVG=function(){if(!_svgOverlay||!_plotDiv)return;const r=_plotDiv.getBoundingClientRect(),inn=_plotDiv.querySelector('.nsewdrag');if(!inn)return;const ir=inn.getBoundingClientRect();_svgOverlay.style.left=(ir.left-r.left)+'px';_svgOverlay.style.top=(ir.top-r.top)+'px';_svgOverlay.style.width=ir.width+'px';_svgOverlay.style.height=ir.height+'px';_svgOverlay.setAttribute('viewBox',`0 0 ${ir.width} ${ir.height}`);};
+GC.getTransform=function(){if(!_plotDiv)return null;const L=_plotDiv._fullLayout;if(!L)return null;const xa=L.xaxis,ya=L.yaxis;if(!xa||!xa._length)return null;const W=xa._length,H=ya._length,xr=xa.range,yr=ya.range;return{xToPixel:x=>(x-xr[0])/(xr[1]-xr[0])*W,yToPixel:y=>H*(1-(y-yr[0])/(yr[1]-yr[0])),W,H};};
+
+GC.renderMap=async function(){
+  const{grid,points,layers,contourSettings:cs,vectorSettings:vs,mapSettings:ms,contourLevelSettings:cls}=GC.state;
+  if(!grid||!_plotDiv)return;
+  const scale=GC.getScale(cs.colorScale,cs.reverse);
+  const zMin=cs.autoRange?grid.min:cs.min,zMax=cs.autoRange?grid.max:cs.max;
+  const pls=scale.map(([t,c])=>[t,c]);
+  const mode=ms.coordMode||'xy';
+  const isLL=mode==='latlon';
+  const isTWD=mode==='twd97';
+  const traces=[];
+
+  // Contour level spec
+  let cspec={};
+  if(cls.mode==='manual'&&cls.manualValues.trim()){
+    const vals=cls.manualValues.split(',').map(s=>parseFloat(s.trim())).filter(v=>!isNaN(v)).sort((a,b)=>a-b);
+    if(vals.length>=2){cspec={start:vals[0],end:vals[vals.length-1],size:(vals[vals.length-1]-vals[0])/(vals.length-1)};}
+  }else if(cls.mode==='interval'&&cls.interval>0){
+    cspec={start:Math.ceil(zMin/cls.interval)*cls.interval,end:Math.floor(zMax/cls.interval)*cls.interval,size:cls.interval};
+  }else{
+    cspec={start:zMin,end:zMax,size:(zMax-zMin)/Math.max(2,cs.levels)};
+  }
+
+  // Hover template per mode
+  let hoverXY,hoverXY2;
+  if(isLL){hoverXY='經度: %{x:.5f}°';hoverXY2='緯度: %{y:.5f}°';}
+  else if(isTWD){hoverXY='E: %{x:,.0f} m';hoverXY2='N: %{y:,.0f} m';}
+  else{hoverXY=`${ms.xLabel||'X'}: %{x:.3f}`;hoverXY2=`${ms.yLabel||'Y'}: %{y:.3f}`;}
+
+  if(layers.contour.visible){
+    traces.push({type:'contour',z:grid.z,x:grid.gridX,y:grid.gridY,colorscale:pls,zmin:zMin,zmax:zMax,
+      ncontours:cls.mode==='auto'?cs.levels:undefined,
+      contours:{coloring:'fill',showlines:true,showlabels:cs.showLabels,labelfont:{size:10,color:'#fff'},...cspec},
+      line:{width:cs.lineWidth,color:cs.lineColor,smoothing:1.3},opacity:layers.contour.opacity,
+      colorbar:{title:{text:ms.colorbarTitle||'數值',font:{color:'#ccc',size:12}},tickfont:{color:'#ccc',size:10},outlinewidth:0,thickness:18,len:.75,x:1.02},
+      showscale:true,hovertemplate:`${hoverXY}<br>${hoverXY2}<br>值: %{z:.4f}<extra></extra>`});
+  }
+  if(layers.scatter.visible&&points.length>0){
+    traces.push({type:'scatter',mode:layers.scatter.labels?'markers+text':'markers',x:points.map(p=>p.x),y:points.map(p=>p.y),
+      text:points.map(p=>p.z.toFixed(2)),textposition:'top center',textfont:{size:9,color:'#ffe'},
+      marker:{size:layers.scatter.size||8,color:points.map(p=>p.z),colorscale:pls,cmin:zMin,cmax:zMax,line:{width:1.5,color:'#fff'},opacity:layers.scatter.opacity},
+      hovertemplate:`${hoverXY}<br>${hoverXY2}<br>值: %{text}<extra>資料點</extra>`,showlegend:false});
+  }
+
+  // Axis config per mode
+  const xAxisCfg=isLL
+    ?{title:{text:'經度 (Longitude)',font:{size:13}},tickformat:'.4f',ticksuffix:'°E',nticks:8}
+    :isTWD
+    ?{title:{text:ms.xLabel||'橫坐標 E (m)',font:{size:13}},tickformat:',.0f',separatethousands:true,nticks:7}
+    :{title:{text:ms.xLabel||'X 坐標',font:{size:13}},nticks:10};
+  const yAxisCfg=isLL
+    ?{title:{text:'緯度 (Latitude)',font:{size:13}},tickformat:'.4f',ticksuffix:'°N',nticks:8}
+    :isTWD
+    ?{title:{text:ms.yLabel||'縱坐標 N (m)',font:{size:13}},tickformat:',.0f',separatethousands:true,nticks:7}
+    :{title:{text:ms.yLabel||'Y 坐標',font:{size:13}},nticks:10};
+
+  const layout={
+    paper_bgcolor:'#1a1a2e',plot_bgcolor:'#16213e',font:{color:'#cccccc',family:'Arial,"Microsoft JhengHei",sans-serif'},
+    title:ms.title?{text:ms.title,font:{size:16,color:'#e0e0f0'},x:.5,xanchor:'center'}:undefined,
+    xaxis:{...xAxisCfg,gridcolor:'#2a2a4a',zerolinecolor:'#3a3a5a',color:'#aaaaaa',showgrid:true,range:[grid.xMin,grid.xMax]},
+    yaxis:{...yAxisCfg,gridcolor:'#2a2a4a',zerolinecolor:'#3a3a5a',color:'#aaaaaa',showgrid:true,range:[grid.yMin,grid.yMax]},
+    margin:{l:isTWD?90:65,r:85,t:ms.title?55:30,b:isTWD?65:55},hovermode:'closest',dragmode:'pan',showlegend:false,
+    modebar:{bgcolor:'rgba(0,0,0,0.5)',color:'#aaa',activecolor:'#4af'},
+  };
+
+  await Plotly.react(_plotDiv,traces,layout,{responsive:true,displayModeBar:true,scrollZoom:true,displaylogo:false,modeBarButtonsToRemove:['toImage'],modeBarButtonsToAdd:[{name:'匯出PNG',icon:Plotly.Icons.camera,click:()=>GC.exportPNG()}]});
+  GC.syncSVG();
+  if(layers.vectors.visible)GC.drawVectors();else{const g=_svgOverlay?.querySelector('#vl');if(g)g.innerHTML='';}
+  if(layers.tin.visible)GC.drawTIN();else{const g=_svgOverlay?.querySelector('#tl');if(g)g.innerHTML='';}
+  _plotDiv.on('plotly_relayout',()=>{GC.syncSVG();if(GC.state.layers.vectors.visible)GC.drawVectors();if(GC.state.layers.tin.visible)GC.drawTIN();});
+};
+
+GC.drawVectors=function(){
+  const{grid,vectorSettings:vs}=GC.state;if(!grid||!_svgOverlay)return;
+  const T=GC.getTransform();if(!T)return;GC.syncSVG();
+  let g=_svgOverlay.querySelector('#vl');
+  if(!g){g=document.createElementNS('http://www.w3.org/2000/svg','g');g.id='vl';_svgOverlay.appendChild(g);}
+  g.innerHTML='';
+  let defs=_svgOverlay.querySelector('defs');
+  if(!defs){defs=document.createElementNS('http://www.w3.org/2000/svg','defs');_svgOverlay.insertBefore(defs,_svgOverlay.firstChild);}
+  defs.innerHTML=`<marker id="ah" markerWidth="6" markerHeight="4" refX="6" refY="2" orient="auto"><polygon points="0 0,6 2,0 4" fill="${vs.color}" opacity="${vs.opacity}"/></marker>`;
+  const den=vs.density||20,sx=Math.max(1,Math.floor(grid.nx/den)),sy=Math.max(1,Math.floor(grid.ny/den));
+  const{gx,gy}=GC.computeGradient(grid);
+  let maxM=0;
+  for(let j=0;j<grid.ny;j+=sy)for(let i=0;i<grid.nx;i+=sx){const m=Math.sqrt(gx[j][i]**2+gy[j][i]**2);if(m>maxM)maxM=m;}
+  if(maxM===0)return;
+  const W=parseFloat(_svgOverlay.style.width),H=parseFloat(_svgOverlay.style.height);
+  const mL=Math.min(W/den,H/den)*.8*(vs.scale||1.5);
+  for(let j=sy;j<grid.ny-sy;j+=sy)for(let i=sx;i<grid.nx-sx;i+=sx){
+    const wx=-gx[j][i],wy=-gy[j][i],mag=Math.sqrt(wx*wx+wy*wy);if(mag<1e-12)continue;
+    const px=T.xToPixel(grid.gridX[i]),py=T.yToPixel(grid.gridY[j]);
+    const len=Math.max(4,(mag/maxM)*mL);
+    const ex=px+(wx/mag)*len,ey=py-(wy/mag)*len;
+    const l=document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',px.toFixed(1));l.setAttribute('y1',py.toFixed(1));l.setAttribute('x2',ex.toFixed(1));l.setAttribute('y2',ey.toFixed(1));
+    l.setAttribute('stroke',vs.color);l.setAttribute('stroke-width','1.5');l.setAttribute('stroke-opacity',vs.opacity);l.setAttribute('marker-end','url(#ah)');
+    g.appendChild(l);
+  }
+};
+
+GC.drawTIN=function(){
+  const{points,layers}=GC.state;if(!points.length||!_svgOverlay)return;
+  const T=GC.getTransform();if(!T)return;GC.syncSVG();
+  let g=_svgOverlay.querySelector('#tl');
+  if(!g){g=document.createElementNS('http://www.w3.org/2000/svg','g');g.id='tl';_svgOverlay.insertBefore(g,_svgOverlay.querySelector('#vl')||null);}
+  g.innerHTML='';
+  const del=d3.Delaunay.from(points,p=>p.x,p=>p.y);
+  const tr=del.triangles;
+  for(let t=0;t<tr.length;t+=3){
+    const a=points[tr[t]],b=points[tr[t+1]],c=points[tr[t+2]];
+    const el=document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    el.setAttribute('points',`${T.xToPixel(a.x).toFixed(1)},${T.yToPixel(a.y).toFixed(1)} ${T.xToPixel(b.x).toFixed(1)},${T.yToPixel(b.y).toFixed(1)} ${T.xToPixel(c.x).toFixed(1)},${T.yToPixel(c.y).toFixed(1)}`);
+    el.setAttribute('fill','none');el.setAttribute('stroke','#ffaa00');el.setAttribute('stroke-width','0.8');el.setAttribute('stroke-opacity',layers.tin.opacity||.5);
+    g.appendChild(el);
+  }
+};
+
+GC.exportPNG=function(opts={}){
+  if(!_plotDiv)return;
+  const t=GC.state.mapSettings.title||'污染濃度圖';
+  Plotly.toImage(_plotDiv,{format:'png',scale:opts.scale||2,width:opts.width||1400,height:opts.height||900}).then(url=>{const a=document.createElement('a');a.href=url;a.download=t+'.png';a.click();});
+};
+GC.exportSVG=function(){
+  if(!_plotDiv)return;
+  const t=GC.state.mapSettings.title||'污染濃度圖';
+  Plotly.toImage(_plotDiv,{format:'svg'}).then(url=>{const a=document.createElement('a');a.href=url;a.download=t+'.svg';a.click();});
+};
+
+// ===== STATS PANELS =====
+GC.renderStats=function(){
+  const s=GC.computeStats(GC.state.points);GC.state.stats=s;
+  if(!s)return;
+  document.getElementById('stats-content').innerHTML=`<table class="stats-table"><tbody>
+    <tr><td>樣本數</td><td>${s.n}</td></tr><tr><td>最小值</td><td>${s.min.toFixed(4)}</td></tr>
+    <tr><td>最大值</td><td>${s.max.toFixed(4)}</td></tr><tr><td>平均值</td><td>${s.mean.toFixed(4)}</td></tr>
+    <tr><td>中位數</td><td>${s.median.toFixed(4)}</td></tr><tr><td>標準差</td><td>${s.std.toFixed(4)}</td></tr>
+    <tr><td>變異係數 (%)</td><td>${s.cv.toFixed(2)}</td></tr><tr><td>偏態</td><td>${s.skewness.toFixed(4)}</td></tr>
+    <tr><td>峰度</td><td>${s.kurtosis.toFixed(4)}</td></tr><tr><td>P25</td><td>${s.p25.toFixed(4)}</td></tr>
+    <tr><td>P75</td><td>${s.p75.toFixed(4)}</td></tr><tr><td>P90</td><td>${s.p90.toFixed(4)}</td></tr>
+    <tr><td>IQR</td><td>${s.iqr.toFixed(4)}</td></tr></tbody></table>`;
+  // Histogram
+  const el=document.getElementById('histogram-chart');
+  if(el&&window.Plotly){
+    const v=GC.state.points.map(p=>p.z),mn=Math.min(...v),mx=Math.max(...v);
+    const nb=15,bs=(mx-mn)/nb||1;
+    const bins=Array.from({length:nb},(_,i)=>({x:(mn+i*bs+mn+(i+1)*bs)/2,y:0}));
+    v.forEach(x=>{const idx=Math.min(Math.floor((x-mn)/bs),nb-1);bins[idx].y++;});
+    Plotly.react(el,[{type:'bar',x:bins.map(b=>b.x),y:bins.map(b=>b.y),marker:{color:'#4af',line:{color:'#1a1a2e',width:1}}}],
+      {paper_bgcolor:'#16213e',plot_bgcolor:'#16213e',font:{color:'#ccc',size:10},margin:{l:35,r:10,t:15,b:35},xaxis:{title:'值',color:'#aaa',gridcolor:'#2a2a4a'},yaxis:{title:'頻次',color:'#aaa',gridcolor:'#2a2a4a'},bargap:.05,showlegend:false},{displayModeBar:false,responsive:true});
+  }
+};
+GC.renderVariogram=function(vr){
+  if(!vr)return;
+  const{experimental:ev,best}=vr,el=document.getElementById('variogram-chart');
+  if(!el||!window.Plotly)return;
+  const hMax=ev[ev.length-1]?.h||100,hv=Array.from({length:50},(_,i)=>(i+1)*hMax/50);
+  const cols={spherical:'#4af',exponential:'#fa4',gaussian:'#4f8'};
+  const traces=[{type:'scatter',mode:'markers',x:ev.map(p=>p.h),y:ev.map(p=>p.gamma),marker:{color:'#fff',size:6},name:'實驗值'}];
+  for(const fit of vr.fits)traces.push({type:'scatter',mode:'lines',x:hv,y:hv.map(h=>GC.variogramValue(fit.model,h,fit.nugget,fit.sill,fit.range)),line:{color:cols[fit.model]||'#ccc',width:fit.model===best.model?3:1.5,dash:fit.model===best.model?'solid':'dash'},name:`${fit.model} (R=${fit.rmse.toFixed(3)})`});
+  Plotly.react(el,traces,{paper_bgcolor:'#16213e',plot_bgcolor:'#16213e',font:{color:'#ccc',size:10},margin:{l:45,r:10,t:15,b:40},xaxis:{title:'距離 h',color:'#aaa',gridcolor:'#2a2a4a'},yaxis:{title:'γ(h)',color:'#aaa',gridcolor:'#2a2a4a'},legend:{font:{color:'#ccc',size:9},bgcolor:'rgba(0,0,0,0.5)'},showlegend:true},{displayModeBar:false,responsive:true});
+  const pe=document.getElementById('variogram-params');
+  if(pe)pe.innerHTML=`<div class="vario-info"><span class="vario-best">最佳: <strong>${best.model}</strong></span><span>Nugget: ${best.nugget.toFixed(4)}</span><span>Sill: ${best.sill.toFixed(4)}</span><span>Range: ${best.range.toFixed(2)}</span></div>`;
+};
+GC.runCrossVal=async function(){
+  const pts=GC.state.points;if(pts.length<4){alert('需要至少4個點');return;}
+  GC.setStatus('交叉驗證中...','running');
+  await new Promise(r=>setTimeout(r,10));
+  try{
+    const errors=[];
+    for(let i=0;i<pts.length;i++){
+      const train=pts.filter((_,j)=>j!==i),test=pts[i];
+      const g=GC.idw(train,[test.x],[test.y],GC.state.gridSettings.power||2,0,1,Math.min(20,train.length));
+      if(!isNaN(g[0][0]))errors.push({a:test.z,p:g[0][0],e:test.z-g[0][0]});
+    }
+    if(!errors.length)throw new Error('無法完成');
+    const n=errors.length,res=errors.map(e=>e.e);
+    const me=res.reduce((s,r)=>s+r,0)/n,mae=res.reduce((s,r)=>s+Math.abs(r),0)/n;
+    const rmse=Math.sqrt(res.reduce((s,r)=>s+r*r,0)/n);
+    const ma=errors.map(e=>e.a),mam=ma.reduce((s,v)=>s+v,0)/n;
+    const r2=1-res.reduce((s,r)=>s+r*r,0)/ma.reduce((s,v)=>s+(v-mam)**2,0);
+    document.getElementById('cv-content').innerHTML=`<table class="stats-table"><tbody><tr><td>n</td><td>${n}</td></tr><tr><td>ME</td><td>${me.toFixed(4)}</td></tr><tr><td>MAE</td><td>${mae.toFixed(4)}</td></tr><tr><td>RMSE</td><td>${rmse.toFixed(4)}</td></tr><tr><td>R²</td><td>${r2.toFixed(4)}</td></tr></tbody></table>`;
+    const cvEl=document.getElementById('cv-chart');
+    if(cvEl&&window.Plotly){const act=errors.map(e=>e.a),pred=errors.map(e=>e.p),mn=Math.min(...act,...pred),mx=Math.max(...act,...pred);
+      Plotly.react(cvEl,[{type:'scatter',mode:'markers',x:act,y:pred,marker:{color:'#4af',size:6,opacity:.8}},{type:'scatter',mode:'lines',x:[mn,mx],y:[mn,mx],line:{color:'#f84',dash:'dash',width:1.5}}],{paper_bgcolor:'#16213e',plot_bgcolor:'#16213e',font:{color:'#ccc',size:10},margin:{l:45,r:10,t:15,b:40},xaxis:{title:'實測值',color:'#aaa',gridcolor:'#2a2a4a'},yaxis:{title:'預測值',color:'#aaa',gridcolor:'#2a2a4a'},showlegend:false},{displayModeBar:false,responsive:true});}
+    GC.setStatus('交叉驗證完成','done');
+  }catch(e){GC.setStatus('錯誤: '+e.message,'error');}
+};
+GC.setStatus=function(msg,type='idle'){const el=document.getElementById('status-bar');if(el){el.textContent=msg;el.className='status-bar status-'+type;}};
+
+// ===== MAIN INTERPOLATION =====
+GC.runInterpolation=async function(){
+  if(GC.state.points.length<3){alert('請輸入至少3個資料點');return;}
+  GC.state.isComputing=true;GC.setStatus('計算中...','running');
+  await new Promise(r=>setTimeout(r,10));
+  try{
+    const grid=GC.buildGrid(GC.state.points,GC.state.gridSettings);
+    GC.state.grid=grid;
+    if(grid.variogramResult){GC.state.variogram=grid.variogramResult;GC.state.gridSettings.nugget=grid.variogramResult.best.nugget;GC.state.gridSettings.sill=grid.variogramResult.best.sill;GC.state.gridSettings.range=grid.variogramResult.best.range;}
+    await GC.renderMap();
+    GC.renderStats();
+    if(GC.state.variogram)GC.renderVariogram(GC.state.variogram);
+    GC.setStatus(`插值完成 (${grid.method.toUpperCase()}, ${grid.nx}×${grid.ny})`,'done');
+  }catch(e){GC.setStatus('錯誤: '+e.message,'error');console.error(e);}
+  finally{GC.state.isComputing=false;}
+};
+
+// ===== UI SETUP =====
+GC.setupUI=function(){
+  // Populate color scale
+  const csel=document.getElementById('color-scale');
+  Object.keys(GC.COLOR_SCALES).forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;if(n==='Jet')o.selected=true;csel.appendChild(o);});
+
+  // Tabs
+  document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>{const t=b.dataset.tab;document.querySelectorAll('.tab-btn').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+t));}));
+  document.querySelectorAll('.bottom-tab-btn').forEach(b=>b.addEventListener('click',()=>{const t=b.dataset.tab;document.querySelectorAll('.bottom-tab-btn').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.bottom-tab-panel').forEach(p=>p.classList.toggle('active',p.id==='btab-'+t));}));
+
+  const tr=()=>{clearTimeout(window._rt);window._rt=setTimeout(()=>GC.renderMap(),120);};
+
+  // Toolbar
+  document.getElementById('btn-run').addEventListener('click',GC.runInterpolation);
+  document.getElementById('btn-export-png').addEventListener('click',()=>GC.exportPNG());
+  document.getElementById('btn-export-svg').addEventListener('click',GC.exportSVG);
+  document.getElementById('btn-export-csv').addEventListener('click',GC.downloadCSV);
+  document.getElementById('btn-export-png-adv')?.addEventListener('click',()=>{const w=parseInt(document.getElementById('export-width').value),h=parseInt(document.getElementById('export-height').value),s=parseFloat(document.getElementById('export-scale').value);GC.exportPNG({width:w,height:h,scale:s});});
+  document.getElementById('file-input').addEventListener('change',e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=ev=>GC.pasteCSV(ev.target.result);r.readAsText(f,'UTF-8');e.target.value='';}});
+  document.getElementById('btn-paste').addEventListener('click',()=>{document.getElementById('paste-modal').style.display='flex';});
+  document.getElementById('btn-paste-small')?.addEventListener('click',()=>{document.getElementById('paste-modal').style.display='flex';});
+  document.getElementById('btn-paste-confirm').addEventListener('click',()=>{GC.pasteCSV(document.getElementById('paste-textarea').value);document.getElementById('paste-modal').style.display='none';});
+  document.getElementById('btn-paste-cancel').addEventListener('click',()=>{document.getElementById('paste-modal').style.display='none';});
+  document.getElementById('btn-sample').addEventListener('click',()=>{GC.pasteCSV(GC.SAMPLE_DATA);GC.runInterpolation();});
+  function setCoordMode(m){
+    document.getElementById('coord-mode').value=m;GC.state.mapSettings.coordMode=m;
+    const labels={xy:['X 坐標','Y 坐標'],twd97:['橫坐標 E (m)','縱坐標 N (m)'],latlon:['經度 (Longitude)','緯度 (Latitude)']};
+    const[xl,yl]=labels[m]||labels.xy;
+    GC.state.mapSettings.xLabel=xl;GC.state.mapSettings.yLabel=yl;
+    document.getElementById('x-label').value=xl;document.getElementById('y-label').value=yl;
+  }
+  document.getElementById('btn-sample-twd97')?.addEventListener('click',()=>{setCoordMode('twd97');GC.pasteCSV(GC.SAMPLE_TWD97);GC.runInterpolation();});
+  document.getElementById('btn-sample-latlon')?.addEventListener('click',()=>{setCoordMode('latlon');GC.pasteCSV(GC.SAMPLE_LATLON);GC.runInterpolation();});
+  document.getElementById('btn-crossval').addEventListener('click',GC.runCrossVal);
+
+  // Grid settings
+  document.getElementById('interp-method').addEventListener('change',e=>{GC.state.gridSettings.method=e.target.value;document.getElementById('idw-params').style.display=e.target.value==='idw'?'':'none';document.getElementById('kriging-params').style.display=e.target.value==='kriging'?'':'none';});
+  document.getElementById('grid-nx').addEventListener('change',e=>GC.state.gridSettings.nx=parseInt(e.target.value));
+  document.getElementById('grid-ny').addEventListener('change',e=>GC.state.gridSettings.ny=parseInt(e.target.value));
+  document.getElementById('idw-power').addEventListener('input',e=>{document.getElementById('idw-power-val').textContent=e.target.value;GC.state.gridSettings.power=parseFloat(e.target.value);});
+  document.getElementById('max-neighbors').addEventListener('change',e=>GC.state.gridSettings.maxNeighbors=parseInt(e.target.value));
+  document.getElementById('auto-variogram').addEventListener('change',e=>GC.state.gridSettings.autoVariogram=e.target.checked);
+  document.getElementById('variogram-model').addEventListener('change',e=>GC.state.gridSettings.variogramModel=e.target.value);
+  ['nugget','sill','range'].forEach(id=>document.getElementById(id)?.addEventListener('change',e=>GC.state.gridSettings[id]=parseFloat(e.target.value)));
+
+  // Contour settings
+  document.getElementById('level-mode').addEventListener('change',e=>{
+    const m=e.target.value;GC.state.contourLevelSettings.mode=m;
+    document.getElementById('level-auto-row').style.display=m==='auto'?'':'none';
+    document.getElementById('level-interval-row').style.display=m==='interval'?'':'none';
+    document.getElementById('level-manual-row').style.display=m==='manual'?'':'none';
+    tr();
+  });
+  document.getElementById('level-interval').addEventListener('change',e=>{GC.state.contourLevelSettings.interval=parseFloat(e.target.value)||0;tr();});
+  document.getElementById('level-manual-values').addEventListener('change',e=>{GC.state.contourLevelSettings.manualValues=e.target.value;tr();});
+  document.getElementById('contour-levels').addEventListener('input',e=>{document.getElementById('contour-levels-val').textContent=e.target.value;GC.state.contourSettings.levels=parseInt(e.target.value);tr();});
+  document.getElementById('color-scale').addEventListener('change',e=>{GC.state.contourSettings.colorScale=e.target.value;tr();});
+  document.getElementById('color-reverse').addEventListener('change',e=>{GC.state.contourSettings.reverse=e.target.checked;tr();});
+  document.getElementById('fill-opacity').addEventListener('input',e=>{document.getElementById('fill-opacity-val').textContent=e.target.value;GC.state.contourSettings.fillOpacity=parseFloat(e.target.value);GC.state.layers.contour.opacity=parseFloat(e.target.value);tr();});
+  document.getElementById('contour-auto-range').addEventListener('change',e=>{GC.state.contourSettings.autoRange=e.target.checked;tr();});
+  document.getElementById('contour-min').addEventListener('change',e=>{GC.state.contourSettings.min=parseFloat(e.target.value);tr();});
+  document.getElementById('contour-max').addEventListener('change',e=>{GC.state.contourSettings.max=parseFloat(e.target.value);tr();});
+  document.getElementById('show-labels').addEventListener('change',e=>{GC.state.contourSettings.showLabels=e.target.checked;tr();});
+  document.getElementById('line-width').addEventListener('change',e=>{GC.state.contourSettings.lineWidth=parseFloat(e.target.value);tr();});
+  document.getElementById('line-color').addEventListener('change',e=>{GC.state.contourSettings.lineColor=e.target.value;tr();});
+
+  // Map settings
+  document.getElementById('map-title').addEventListener('input',e=>{GC.state.mapSettings.title=e.target.value;tr();});
+  document.getElementById('x-label').addEventListener('input',e=>{GC.state.mapSettings.xLabel=e.target.value;tr();});
+  document.getElementById('y-label').addEventListener('input',e=>{GC.state.mapSettings.yLabel=e.target.value;tr();});
+  document.getElementById('colorbar-title').addEventListener('input',e=>{GC.state.mapSettings.colorbarTitle=e.target.value||'數值';tr();});
+  document.getElementById('coord-mode').addEventListener('change',e=>{
+    const m=e.target.value;GC.state.mapSettings.coordMode=m;
+    const labels={xy:['X 坐標','Y 坐標'],twd97:['橫坐標 E (m)','縱坐標 N (m)'],latlon:['經度 (Longitude)','緯度 (Latitude)']};
+    const[xl,yl]=labels[m]||labels.xy;
+    GC.state.mapSettings.xLabel=xl;GC.state.mapSettings.yLabel=yl;
+    document.getElementById('x-label').value=xl;document.getElementById('y-label').value=yl;
+    tr();
+  });
+
+  // Layers
+  ['contour','vectors','scatter','tin'].forEach(name=>{
+    document.getElementById('layer-'+name)?.addEventListener('change',e=>{GC.state.layers[name].visible=e.target.checked;GC.renderMap();});
+    document.getElementById('opacity-'+name)?.addEventListener('input',e=>{document.getElementById('opacity-'+name+'-val').textContent=e.target.value;GC.state.layers[name].opacity=parseFloat(e.target.value);});
+  });
+  document.getElementById('vector-density').addEventListener('input',e=>{document.getElementById('vector-density-val').textContent=e.target.value;GC.state.vectorSettings.density=parseInt(e.target.value);if(GC.state.layers.vectors.visible)GC.renderMap();});
+  document.getElementById('vector-scale').addEventListener('input',e=>{document.getElementById('vector-scale-val').textContent=e.target.value;GC.state.vectorSettings.scale=parseFloat(e.target.value);});
+  document.getElementById('vector-color').addEventListener('change',e=>GC.state.vectorSettings.color=e.target.value);
+
+  // Resizers
+  const lp=document.getElementById('left-panel'),rl=document.getElementById('resizer-left');
+  if(lp&&rl){let drag=false,sx=0,sw=0;rl.addEventListener('mousedown',e=>{drag=true;sx=e.clientX;sw=lp.offsetWidth;document.body.style.cursor='col-resize';});document.addEventListener('mousemove',e=>{if(!drag)return;lp.style.width=Math.max(180,Math.min(500,sw+(e.clientX-sx)))+'px';});document.addEventListener('mouseup',()=>{drag=false;document.body.style.cursor='';});}
+  const ba=document.getElementById('bottom-area'),rb=document.getElementById('resizer-bottom');
+  if(ba&&rb){let drag=false,sy=0,sh=0;rb.addEventListener('mousedown',e=>{drag=true;sy=e.clientY;sh=ba.offsetHeight;document.body.style.cursor='row-resize';});document.addEventListener('mousemove',e=>{if(!drag)return;ba.style.height=Math.max(120,Math.min(500,sh+(sy-e.clientY)))+'px';});document.addEventListener('mouseup',()=>{drag=false;document.body.style.cursor='';});}
+
+  document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')GC.runInterpolation();if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();GC.downloadCSV();}});
+};
+
+// ===== SAMPLE DATA =====
+GC.SAMPLE_DATA=`X,Y,Value
+100,100,45.2
+150,120,38.7
+200,130,32.1
+250,140,28.4
+300,150,22.8
+120,160,51.3
+170,175,44.6
+220,180,37.9
+270,190,30.2
+320,200,18.5
+140,220,58.1
+190,230,50.4
+240,240,43.2
+290,250,35.6
+340,260,24.1
+160,280,62.7
+210,290,55.3
+260,300,47.8
+310,310,39.4
+360,320,27.9
+180,340,67.4
+230,350,60.1
+280,360,52.6
+330,370,44.3
+380,380,31.2
+200,400,70.8
+250,410,63.5
+300,420,56.2
+350,430,48.9
+400,440,35.7
+130,180,55.6
+280,220,33.4
+420,180,15.2
+420,380,22.4
+130,380,58.9
+250,250,48.3
+320,320,38.1
+180,300,61.2
+350,200,25.6
+200,350,64.8`;
+GC.SAMPLE_TWD97=`X,Y,Value
+218450,2680120,45.2
+224310,2683560,38.7
+230180,2687240,32.1
+236050,2690830,28.4
+241920,2694410,22.8
+220640,2686790,51.3
+226510,2690280,44.6
+232380,2693860,37.9
+238250,2697340,30.2
+244120,2700920,18.5
+222830,2693460,58.1
+228700,2697000,50.4
+234570,2700540,43.2
+240440,2704020,35.6
+246310,2707600,24.1
+225020,2700130,62.7
+230890,2703670,55.3
+236760,2707250,47.8
+242630,2710730,39.4
+248500,2714310,27.9
+227210,2706800,67.4
+233080,2710340,60.1
+238950,2713920,52.6
+244820,2717400,44.3
+250690,2720980,31.2
+229400,2713470,70.8
+235270,2717010,63.5
+241140,2720590,56.2
+247010,2724070,48.9
+252880,2727650,35.7
+221550,2689460,55.6
+242800,2696340,33.4
+258320,2683780,15.2
+256140,2720540,22.4
+219760,2710890,58.9
+236200,2703260,48.3
+244900,2711620,38.1
+226900,2699840,61.2
+248100,2694560,25.6
+231650,2708430,64.8`;
+GC.SAMPLE_LATLON=`X,Y,Value
+121.540,25.048,45.2
+121.545,25.052,38.7
+121.550,25.056,32.1
+121.555,25.060,28.4
+121.560,25.064,22.8
+121.542,25.054,51.3
+121.547,25.058,44.6
+121.552,25.062,37.9
+121.557,25.066,30.2
+121.562,25.070,18.5
+121.544,25.060,58.1
+121.549,25.064,50.4
+121.554,25.068,43.2
+121.559,25.072,35.6
+121.564,25.076,24.1
+121.548,25.072,67.4
+121.553,25.076,60.1
+121.558,25.080,52.6
+121.563,25.084,44.3
+121.568,25.088,31.2
+121.550,25.078,70.8
+121.555,25.082,63.5
+121.560,25.086,56.2
+121.565,25.090,48.9
+121.570,25.094,35.7
+121.543,25.058,55.6
+121.558,25.066,33.4
+121.572,25.058,15.2
+121.572,25.086,22.4
+121.543,25.086,58.9
+121.555,25.073,48.3
+121.562,25.080,38.1
+121.548,25.076,61.2
+121.565,25.064,25.6
+121.550,25.084,64.8`;
+
+// ===== INIT =====
+window.addEventListener('load',async()=>{
+  GC.initRenderer();
+  GC.setupUI();
+  GC.pasteCSV(GC.SAMPLE_DATA);
+  await GC.runInterpolation();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "geocontour",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "3799", "."],
+      "port": 3799
+    }
+  ]
+}
